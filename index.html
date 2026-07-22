@@ -1030,7 +1030,9 @@ function update(dt){
 
 function onDeath(){ dead = true; document.getElementById('dead').classList.add('show'); }
 function respawn(){
-  player = makePlayer(); rebuildInstances(); seedMobs(); pickups.length=0;
+  // only the player resets — mobs and ground pickups persist through death instead of the
+  // whole map being wiped and reseeded
+  player = makePlayer(); rebuildInstances();
   dead = false; document.getElementById('dead').classList.remove('show');
 }
 window.respawn = respawn;
