@@ -206,11 +206,21 @@ const MOB_DEFS = {
     name:'Ladybug', r:22, health:100, contactDmg:10, petalDmg:7.5, mass:1.3, friction:6,
     speed:60, behavior:'passive', color:'#e6352b', weight:30,
     drops:ALL_RARITIES_DROP,
+    // exception to its own 'passive' tag — high-level ladybugs fight back once provoked
+    retaliateLevel:30,
+    retaliateDesc:(def,fightsBack)=> fightsBack
+      ? `Passive — but level 30+ ladybugs fight back and chase at ${def.speed} spd once attacked.`
+      : 'Passive — drifts around, pauses, drifts again. Never fights back, even if attacked.',
   },
   bee: {
     name:'Bee', r:16, health:67, contactDmg:30, petalDmg:17.5, mass:1.2, friction:5,
     speed:200, behavior:'neutral-swerve', color:'#ffcf33', weight:20,
     drops:ALL_RARITIES_DROP,
+    // exception to its own 'neutral-swerve' tag — low-level bees are all bark, no bite
+    retaliateLevel:15,
+    retaliateDesc:(def,fightsBack)=> fightsBack
+      ? 'Neutral — ignores you until attacked, then runs at you while swerving side to side.'
+      : "Passive — low-level bees won't fight back, even if attacked.",
   },
   spider: {
     name:'Spider', r:24, health:71, contactDmg:17.5, petalDmg:11.25, mass:8, friction:8,
@@ -251,4 +261,28 @@ function xpForKill(mobTypeKey, level){
   const def = MOB_DEFS[mobTypeKey];
   const scale = mobLevelScale(level);
   return Math.max(1, Math.round(0.25 * Math.sqrt(def.health*scale * def.contactDmg*scale)));
+}
+// does landing a hit on this mob provoke it into fighting back? Mobs with a retaliateLevel
+// (ladybug, bee) override their own behavior tag below that level; everything else just
+// follows the standard neutral/neutral-swerve rule.
+function shouldAggroOnHit(m){
+  const def = MOB_DEFS[m.type];
+  if (def.retaliateLevel != null) return m.level >= def.retaliateLevel;
+  return def.behavior === 'neutral' || def.behavior === 'neutral-swerve';
+}
+// mob-gallery tooltip's behavior line — data-driven off MOB_DEFS so new mobs/levels never
+// need index.html touched
+function behaviorText(def, mobKey, level){
+  if (def.retaliateLevel != null){
+    const fightsBack = level!=null && level>=def.retaliateLevel;
+    return def.retaliateDesc(def, fightsBack);
+  }
+  switch(def.behavior){
+    case 'passive': return 'Passive — drifts around, pauses, drifts again. Never attacks.';
+    case 'neutral': return "Neutral — ignores you until attacked, then chases at " + def.speed + " spd.";
+    case 'neutral-swerve': return "Neutral — ignores you until attacked, then runs at you while swerving side to side.";
+    case 'hostile': return `Hostile — chases you on sight within ${Math.round(def.aggroRange*aggroRangeScale(level))}px, faster than you.`;
+    case 'stationary': return "Stationary — never moves.";
+  }
+  return '';
 }

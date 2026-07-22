@@ -427,29 +427,6 @@ function updateLevelHud(){
    MOB DEFINITIONS — MOB_KNOCKBACK, ALL_RARITIES_DROP, and MOB_DEFS now live in balance.js
    ══════════════════════════════════════════ */
 // level thresholds picked to roughly track where each rarity band starts becoming common in the drop tables
-function behaviorText(def, mobKey, level){
-  if (mobKey==='ladybug'){
-    const fightsBack = level!=null && level>=30;
-    return fightsBack
-      ? `Passive — but level 30+ ladybugs fight back and chase at ${def.speed} spd once attacked.`
-      : 'Passive — drifts around, pauses, drifts again. Never fights back, even if attacked.';
-  }
-  if (mobKey==='bee'){
-    const fightsBack = level!=null && level>=15;
-    return fightsBack
-      ? 'Neutral — ignores you until attacked, then runs at you while swerving side to side.'
-      : "Passive — low-level bees won't fight back, even if attacked.";
-  }
-  switch(def.behavior){
-    case 'passive': return 'Passive — drifts around, pauses, drifts again. Never attacks.';
-    case 'neutral': return "Neutral — ignores you until attacked, then chases at " + def.speed + " spd.";
-    case 'neutral-swerve': return "Neutral — ignores you until attacked, then runs at you while swerving side to side.";
-    case 'hostile': return `Hostile — chases you on sight within ${Math.round(def.aggroRange*aggroRangeScale(level))}px, faster than you.`;
-    case 'stationary': return "Stationary — never moves.";
-  }
-  return '';
-}
-
 /* ══════════════════════════════════════════
    PLAYER
    ══════════════════════════════════════════ */
@@ -880,14 +857,6 @@ function updateInstances(dt){
     }
     positionInstance(inst, dt);
   }
-}
-function shouldAggroOnHit(m){
-  // Ladybugs are normally passive, but level 30+ ones fight back once provoked.
-  if (m.type === 'ladybug') return m.level >= 30;
-  // Low-level bees are all bark, no bite — only level 15+ bees retaliate.
-  if (m.type === 'bee') return m.level >= 15;
-  const beh = MOB_DEFS[m.type].behavior;
-  return beh === 'neutral' || beh === 'neutral-swerve';
 }
 function dealPetalDamage(inst, def, m, dx, dy, d){
   const dmg = pscale(def,'damage',inst.petal,inst.tier);
