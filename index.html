@@ -10,6 +10,17 @@
   canvas{display:block;cursor:crosshair;}
   #hud{position:fixed;top:12px;left:12px;color:#fff;font-size:13px;font-weight:600;text-shadow:0 1px 2px rgba(0,0,0,.5);line-height:1.5;pointer-events:none;}
   #hud b{color:#ffe27a;}
+  #devBtn{position:fixed;top:12px;right:12px;z-index:25;padding:7px 12px;border-radius:8px;border:2px solid #7a1414;
+    background:#e04b4b;color:#fff;font-weight:800;font-size:12px;cursor:pointer;box-shadow:0 3px 0 #7a1414;}
+  #devBtn:hover{filter:brightness(1.1);}
+  #devBtn:active{transform:translateY(2px);box-shadow:none;}
+  #levelHud{position:fixed;bottom:14px;right:14px;z-index:20;display:flex;flex-direction:column;align-items:flex-end;gap:5px;pointer-events:none;}
+  #levelHudText{background:rgba(15,32,58,.82);color:#dfe9ff;font-size:12px;font-weight:800;padding:4px 12px;border-radius:8px;
+    box-shadow:0 2px 6px rgba(0,0,0,.35);text-shadow:0 1px 1px rgba(0,0,0,.4);}
+  #levelHudBar{position:relative;width:230px;height:27px;background:#16233a;border:2px solid #0a1424;border-radius:14px;overflow:hidden;box-shadow:0 3px 8px rgba(0,0,0,.4);}
+  #levelHudFill{position:absolute;left:0;top:0;bottom:0;width:0%;background:linear-gradient(#f3f79a,#d3dc4a);transition:width .3s ease;}
+  #levelHudLabel{position:relative;z-index:2;display:flex;align-items:center;justify-content:center;height:100%;
+    font-size:13px;font-weight:900;color:#20260a;text-shadow:0 1px 0 rgba(255,255,255,.35);}
   #dead{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;background:rgba(0,0,0,0);color:#fff;opacity:0;pointer-events:none;transition:opacity .5s ease,background .5s ease;}
   #dead.show{opacity:1;background:rgba(0,0,0,.55);pointer-events:auto;}
   #dead h1{font-size:44px;margin-bottom:14px;transform:translateY(14px) scale(.96);transition:transform .5s cubic-bezier(.2,.8,.3,1);}
@@ -17,18 +28,38 @@
   #dead button{margin-top:10px;padding:10px 22px;border:none;border-radius:10px;background:#ffe27a;color:#222;font-weight:800;font-size:16px;cursor:pointer;opacity:0;transform:translateY(14px);transition:opacity .5s ease .15s,transform .5s cubic-bezier(.2,.8,.3,1) .15s;}
   #dead.show button{opacity:1;transform:translateY(0);}
 
-  /* ── loadout bar ── */
-  #loadoutBar{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);display:flex;gap:8px;z-index:20;}
-  .lbslot{position:relative;width:54px;height:54px;border-radius:12px;background:var(--rc,#7eef6d);border:2px solid color-mix(in srgb, var(--rc,#7eef6d) 55%, black);overflow:hidden;box-shadow:0 3px 0 rgba(0,0,0,.35);
-    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;}
-  .lbslot .lbicon{width:30px;height:30px;position:relative;z-index:2;}
-  .lbslot .lbname{position:relative;z-index:2;font-size:8px;font-weight:800;color:#fff;text-shadow:0 1px 2px #000;}
-  .lbslot .lbcover{position:absolute;top:0;left:0;right:0;height:0%;background:rgba(4,10,18,.75);transition:height .12s linear;z-index:1;}
+  /* ── login/signup overlay — shown on load until authenticated ── */
+  #authScreen{position:fixed;inset:0;z-index:100;display:none;align-items:center;justify-content:center;background:rgba(10,14,10,.88);}
+  #authScreen.show{display:flex;}
+  .auth-card{width:280px;background:#1c2410;border:3px solid #7d7328;border-radius:14px;padding:20px;color:#f2edcf;box-shadow:0 14px 32px rgba(0,0,0,.5);}
+  .auth-card h1{font-size:20px;font-weight:900;margin-bottom:14px;text-align:center;color:#ffe27a;}
+  .auth-card input{width:100%;padding:9px 10px;margin-bottom:10px;border-radius:8px;border:2px solid #5c5430;background:#2a2f18;color:#f2edcf;font-size:14px;box-sizing:border-box;}
+  .auth-card input:focus{outline:none;border-color:#ffe27a;}
+  .auth-actions{display:flex;gap:8px;margin-top:4px;}
+  .auth-actions button{flex:1;padding:9px 0;border-radius:8px;border:2px solid #5c5430;background:#e8dc8a;color:#3a3418;font-weight:900;font-size:13px;cursor:pointer;box-shadow:0 3px 0 #5c5430;}
+  .auth-actions button:hover{filter:brightness(1.08);}
+  .auth-actions button:disabled{opacity:.5;cursor:default;box-shadow:none;}
+  .auth-error{margin-top:10px;font-size:12px;font-weight:700;color:#ff9a9a;text-align:center;min-height:16px;}
+  #logoutBtn{position:fixed;top:44px;right:12px;z-index:25;padding:6px 12px;border-radius:8px;border:2px solid #2a5c1f;
+    background:#4f93d6;color:#fff;font-weight:800;font-size:12px;cursor:pointer;box-shadow:0 3px 0 #2a5c1f;}
+  #logoutBtn:hover{filter:brightness(1.1);}
 
-  /* ── toasts ── */
-  #toasts{position:fixed;top:60px;right:14px;display:flex;flex-direction:column;gap:6px;z-index:30;pointer-events:none;}
-  .toast{background:#0b2035;border:1px solid #1d4368;border-left:4px solid var(--rc,#8bd94a);color:#fff;font-size:12px;font-weight:700;padding:7px 12px;border-radius:8px;opacity:1;transition:opacity .4s,transform .4s;box-shadow:0 4px 14px rgba(0,0,0,.4);}
-  .toast.out{opacity:0;transform:translateX(20px);}
+  /* ── loadout bar ── */
+  #loadoutBar{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;gap:6px;z-index:20;}
+  .lbrow{display:flex;gap:8px;align-items:center;justify-content:center;transition:opacity .15s,gap .15s;opacity:.65;}
+  .lbrow.active{opacity:1;}
+  .lbslot{position:relative;width:58px;height:58px;border-radius:12px;background:var(--rc,#7eef6d);border:3px solid color-mix(in srgb, var(--rc,#7eef6d) 55%, black);overflow:hidden;box-shadow:0 3px 0 rgba(0,0,0,.35);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;cursor:pointer;transition:width .15s,height .15s;}
+  .lbslot.dragover{box-shadow:0 0 0 3px #ffe27a;}
+  .lbslot .lbicon{width:32px;height:32px;position:relative;z-index:2;}
+  .lbslot .lbname{position:relative;z-index:2;font-size:10px;font-weight:800;color:#fff;margin-top:-2px;line-height:1;}
+  .lbslot .lbcover{position:absolute;top:0;left:0;right:0;height:0%;background:rgba(4,10,18,.75);transition:height .12s linear;z-index:1;}
+  /* the inactive row is the "reserve" set — shown small, click a slot to swap it with the active row */
+  .lbrow:not(.active){gap:5px;}
+  .lbrow:not(.active) .lbslot{width:34px;height:34px;border-radius:9px;}
+  .lbrow:not(.active) .lbicon{width:19px;height:19px;}
+  .lbrow:not(.active) .lbname{display:none;}
+  .lbrow:not(.active) .lbtier{display:none;}
 
   /* ── panels · small, corner-anchored, never block the game ── */
   #panelBackdrop{position:fixed;inset:0;display:none;z-index:50;pointer-events:none;}
@@ -36,16 +67,26 @@
   .panel{position:fixed;top:64px;left:12px;pointer-events:auto;
     display:flex;flex-direction:column;max-height:64vh;
     border-radius:14px;color:#fff;font-family:'Segoe UI',system-ui,sans-serif;box-shadow:0 14px 32px rgba(0,0,0,.45);}
+  .panel.inventory, .panel.craft, .panel.forge{top:auto;bottom:14px;}
   .panel-head{flex-shrink:0;display:flex;justify-content:space-between;align-items:center;padding:8px 10px;z-index:5;}
   .panel-head h2{font-size:16px;font-weight:900;color:#fff;letter-spacing:.02em;
     text-shadow:-1.5px -1.5px 0 rgba(0,0,0,.5),1.5px -1.5px 0 rgba(0,0,0,.5),-1.5px 1.5px 0 rgba(0,0,0,.5),1.5px 1.5px 0 rgba(0,0,0,.5);}
   .panel-head .x{background:#e04b4b;border:2px solid #7a1414;color:#fff;border-radius:8px;width:24px;height:24px;font-weight:900;cursor:pointer;font-size:12px;box-shadow:0 2px 0 #7a1414;}
   .panel-head .x:hover{filter:brightness(1.12);}
-  .panel-body{overflow:auto;flex:1;min-height:0;padding:6px;}
+  .panel-body{overflow:auto;flex:1;min-height:0;padding:6px;
+    scrollbar-width:thin;scrollbar-color:rgba(0,0,0,.4) rgba(255,255,255,.15);}
+  .panel-body::-webkit-scrollbar{width:10px;}
+  .panel-body::-webkit-scrollbar-track{background:rgba(0,0,0,.12);border-radius:8px;margin:2px;}
+  .panel-body::-webkit-scrollbar-thumb{background:rgba(0,0,0,.4);border-radius:8px;border:2px solid transparent;background-clip:padding-box;}
+  .panel-body::-webkit-scrollbar-thumb:hover{background:rgba(0,0,0,.58);background-clip:padding-box;}
+  .craft-fixed{flex-shrink:0;padding:20px 6px 0;}
 
   /* ── Mob / Petal Gallery — olive, textured, tight grid, no labels ── */
+  .panel.gallery.wide{
+    width:496px;
+  }
   .panel.gallery{
-    width:300px;
+    width:376px;
     background-color:#c7ba3c;
     background-image:
       radial-gradient(circle at 12% 22%, rgba(0,0,0,.07) 0 26px, transparent 27px),
@@ -57,11 +98,90 @@
   }
   .panel.gallery .panel-head{background:#b3a635;border-bottom:3px solid #7d7328;}
   .grow{display:grid;grid-template-columns:repeat(6,1fr);gap:2px;margin-bottom:2px;}
-  .gcell{aspect-ratio:1;border-radius:5px;border:4px solid color-mix(in srgb, var(--rc) 55%, black);background:color-mix(in srgb, var(--rc) 32%, #fffef2);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform .1s;}
+  .grow.mobgrow{grid-template-columns:repeat(13,1fr);}
+  .gcell{position:relative;aspect-ratio:1;border-radius:5px;border:4px solid color-mix(in srgb, var(--rc) 55%, black);background:color-mix(in srgb, var(--rc) 32%, #fffef2);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform .1s;}
   .gcell:hover{transform:scale(1.08);z-index:2;}
-  .gcell.locked{background:rgba(0,0,0,.15);border-color:rgba(0,0,0,.35);cursor:default;font-size:14px;opacity:.6;}
+  .gcell.locked{background:color-mix(in srgb, var(--rc,#333) 32%, #14120a);border-color:color-mix(in srgb, var(--rc,#333) 45%, black);cursor:default;font-size:17px;opacity:.75;}
   .gcell.locked:hover{transform:none;}
+  /* a tier this petal's rarity can never occupy — a white slash instead of a "maybe someday" ? */
+  .gcell.impossible{background:rgba(0,0,0,.32);border-color:rgba(0,0,0,.45);cursor:default;
+    background-image:linear-gradient(135deg, transparent calc(50% - 1.5px), rgba(255,255,255,.8) calc(50% - 1.5px), rgba(255,255,255,.8) calc(50% + 1.5px), transparent calc(50% + 1.5px));}
+  .gcell.impossible:hover{transform:none;}
+  .gcell.short{filter:grayscale(0.85) brightness(0.8);cursor:default;}
+  .gcell.short:hover{transform:none;}
+  .gcell.maxed{filter:grayscale(1) brightness(0.65);cursor:not-allowed;opacity:.7;}
+  .gcell.maxed:hover{transform:none;}
+  .gcell.sel{outline:3px solid #ffe27a;outline-offset:-3px;}
+  .gcell .gc-count{position:absolute;bottom:1px;right:2px;font-size:8px;font-weight:900;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.65);}
+  .gcell .gc-tier{position:absolute;top:1px;right:2px;font-size:7px;font-weight:900;color:#ffe27a;background:rgba(0,0,0,.6);padding:0 2px;border-radius:4px;}
   .gicon{width:70%;height:70%;}
+
+  /* ── Craft panel ── */
+  .craft-top{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;margin-bottom:6px;}
+  /* nudged left so the pentagon's visual (bounding-box) center lands on the panel's center
+     line — its rotational center and its container's geometric center aren't the same point */
+  .craft-pentagon{position:relative;width:160px;height:160px;flex-shrink:0;transform:translate(-5.16px, -6px);}
+  .craft-arm{position:absolute;left:50%;top:50%;width:0;height:0;}
+  .craft-counter{position:absolute;left:0;top:0;width:0;height:0;}
+  /* the pentagon formation itself never moves or revolves — each slot just spins + bulges in place */
+  .craft-radius{position:absolute;left:0;top:0;width:0;height:0;transform:translateX(54px);}
+  /* rotation lives on its own wrapper, separate from the bulge — so the spin is one smooth
+     accelerate/decelerate arc across the whole attempt instead of stuttering at each pulse */
+  .craft-spin{position:absolute;left:0;top:0;width:0;height:0;}
+  .craft-pentagon.spinning .craft-spin{animation:craftRotate 2.2s cubic-bezier(.45,0,.55,1) forwards;}
+  @keyframes craftRotate{ from{transform:rotate(0deg);} to{transform:rotate(1080deg);} }
+  .craftslot{position:relative;width:48px;height:48px;margin:-24px 0 0 -24px;border-radius:8px;background:rgba(0,0,0,.15);border:2px dashed rgba(0,0,0,.35);
+    display:flex;align-items:center;justify-content:center;transition:opacity .25s;transform-origin:50% 50%;}
+  .craft-slot-badge{position:absolute;bottom:-4px;right:-4px;background:#1c2410;border:2px solid #7d7328;border-radius:7px;
+    color:#ffe27a;font-size:9px;font-weight:900;padding:0 4px;line-height:1.4;}
+  .craftslot.filled{border-style:solid;border-color:color-mix(in srgb, var(--rc) 55%, black);background:var(--rc);animation:craftSlotAppear .22s ease-out;}
+  @keyframes craftSlotAppear{ from{opacity:0;transform:scale(.4);} to{opacity:1;transform:scale(1);} }
+  .craftslot.filled canvas{width:36px;height:36px;}
+  .craftslot.destroyed{border-color:#7a1414;background:rgba(120,20,20,.35);}
+  .craftslot.destroyed canvas{display:none;}
+  .craftslot.missing{filter:grayscale(1) brightness(0.6);opacity:.65;}
+  .craft-pentagon.spinning .craftslot{animation:craftBulge 2.2s ease-in-out forwards;}
+  @keyframes craftBulge{
+    0%,100%{transform:scale(1);}
+    12.5%,37.5%,62.5%,87.5%{transform:scale(1.3);}
+    25%,50%,75%{transform:scale(1);}
+  }
+  /* success: the 5 petals slide inward and shrink away, handing off to the center reveal */
+  .craft-pentagon.result-success .craft-radius{animation:craftMergeIn .45s cubic-bezier(.5,0,.85,.6) forwards;}
+  @keyframes craftMergeIn{ from{transform:translateX(54px);} to{transform:translateX(0px);} }
+  .craft-pentagon.result-success .craftslot{animation:craftMergeShrink .45s ease-in forwards;}
+  @keyframes craftMergeShrink{ 0%{opacity:1;transform:scale(1);} 70%{opacity:1;transform:scale(1.15);} 100%{opacity:0;transform:scale(.2);} }
+  /* fail: destroyed petals pop and fade fast, echoing the mob death-burst look */
+  .craft-pentagon.result-fail .craftslot.destroyed{animation:craftDestroy .32s ease-out forwards;}
+  @keyframes craftDestroy{ from{transform:scale(1);opacity:1;} to{transform:scale(1.55);opacity:0;} }
+  /* offset from the pentagon's rotational center to its visual (bounding-box) center — a
+     5-vertex shape always has one side stick out further than the other, so they're not the same point */
+  .craft-center{position:absolute;left:calc(50% + 5.16px);top:50%;width:0;height:0;display:flex;align-items:center;justify-content:center;}
+  .craft-center-inner{position:absolute;left:-30px;top:-30px;width:60px;height:60px;border-radius:14px;display:flex;align-items:center;justify-content:center;
+    opacity:0;transform:scale(.3);transition:opacity .3s ease .38s,transform .4s cubic-bezier(.2,.8,.3,1.3) .38s;}
+  .craft-center-inner.show{opacity:1;transform:scale(1);}
+  .craft-center-inner canvas{width:42px;height:42px;}
+  .craft-center-badge{position:absolute;bottom:-4px;right:-4px;background:#1c2410;border:2px solid #7d7328;border-radius:8px;
+    color:#ffe27a;font-size:11px;font-weight:900;padding:1px 5px;}
+  .craft-grid .grow{grid-template-columns:repeat(6, 52px);justify-content:center;gap:4px;}
+  .craft-grid .gcell{border-width:3px;}
+  .craft-grid .picn{width:34px;height:34px;}
+  .craft-grid .gc-count{font-size:9px;}
+  .craft-grid .gc-tier{font-size:7px;}
+  /* fixed width so the button/text changing on craft attempt never re-centers the flex column */
+  .craft-action{display:flex;flex-direction:column;align-items:center;gap:4px;width:170px;flex-shrink:0;}
+  .craft-btn{padding:7px 22px;border-radius:10px;border:2px solid #5c5430;background:#e8dc8a;color:#3a3418;font-weight:900;font-size:14px;cursor:pointer;box-shadow:0 3px 0 #5c5430;}
+  .craft-btn:hover:not(:disabled){filter:brightness(1.08);}
+  .craft-btn:disabled{opacity:.5;cursor:default;box-shadow:none;}
+  .craft-chance{font-size:11px;font-weight:800;color:#3a3418;text-shadow:0 1px 0 rgba(255,255,255,.25);width:100%;text-align:center;}
+  .craft-hint{text-align:center;font-size:11px;font-weight:700;color:#3a3418;margin-bottom:8px;}
+  .craft-grid.busy{pointer-events:none;}
+  /* exactly 6 rows of petals visible at once — the rest scrolls */
+  .panel.craft .panel-body{flex:0 0 270px;height:270px;}
+  /* forge's panel-body just holds a one-line back-link (or the petal grid in list view) —
+     size it to its content instead of the generic flex:1 rule, which collapses it to ~0
+     since the panel itself has no fixed height to grow into */
+  .panel.forge .panel-body{flex:0 0 auto;}
 
   /* click-triggered detail tooltip, shared by both galleries */
   .galtip{position:fixed;display:none;z-index:90;width:250px;background:#1c2410;border:3px solid #7d7328;border-radius:12px;padding:12px 14px;color:#f2edcf;box-shadow:0 12px 28px rgba(0,0,0,.5);}
@@ -76,33 +196,30 @@
   .ratecard .picn,.ratecard .gicon{width:24px;height:24px;}
   .ratecard .rc-name{font-size:9px;font-weight:900;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.45);line-height:1.1;}
   .ratecard .rc-pct{font-size:10px;font-weight:900;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.45);}
+  .ratecard .rc-multi{font-size:8px;font-weight:800;color:#ffe27a;text-shadow:0 1px 2px rgba(0,0,0,.45);}
   .ratecard.locked{background:rgba(0,0,0,.32);border-color:rgba(0,0,0,.45);font-size:16px;}
   .ratecard.mobcard{background:#8d8256;border-color:#5c5430;}
 
   /* ── Inventory — blue/green, drag-and-drop ── */
-  .panel.inventory{width:320px;background:#4f93d6;border:5px solid #2f6b23;}
+  .panel.inventory{width:420px;background:#4f93d6;border:5px solid #2f6b23;}
   .panel.inventory .panel-head{background:transparent;}
   .inv-sub{text-align:center;color:#eaf3ff;font-weight:800;font-size:11px;margin:-2px 0 6px;text-shadow:0 1px 2px rgba(0,0,0,.3);}
   .inv-toolbar{display:flex;align-items:center;gap:8px;margin-bottom:8px;background:#3f7dbd;border-radius:8px;padding:6px 8px;}
   .inv-toolbar label{display:flex;align-items:center;gap:4px;font-weight:800;color:#fff;font-size:11px;flex-shrink:0;cursor:pointer;}
   .inv-search{flex:1;padding:5px 8px;border-radius:6px;border:2px solid #2a5c1f;font-size:12px;min-width:0;}
-  .loadout-slots{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px;background:#3f7dbd;border-radius:8px;padding:6px;}
-  .lslot{width:56px;height:56px;background:#fff;border:3px dashed #2a5c1f;border-radius:8px;padding:4px;cursor:pointer;
-    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;}
-  .lslot.sel{border-style:solid;border-color:#ffb020;box-shadow:0 0 0 3px rgba(255,176,32,.3);}
-  .lslot.dragover{border-style:solid;border-color:#ffe27a;background:#fff9e0;}
-  .lslot .picn{width:26px;height:26px;border-radius:6px;background:#f4f0de;box-shadow:inset 0 0 0 3px var(--rc,#7eef6d);}
-  .lslot .pname{font-size:8px;font-weight:800;color:#2a2a2a;}
   .inv-section-head{color:var(--rc);font-weight:900;font-size:11px;text-align:center;margin:8px 0 4px;display:flex;align-items:center;gap:6px;text-shadow:0 1px 2px rgba(0,0,0,.4);}
   .inv-section-head::before,.inv-section-head::after{content:'';flex:1;height:2px;background:var(--rc);opacity:.7;}
-  .inv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(56px,1fr));gap:4px;}
-  .istack{background:#fff;border:4px solid color-mix(in srgb, var(--rc) 55%, black);border-radius:8px;padding:4px;cursor:grab;position:relative;
-    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:60px;}
+  .inv-grid{display:grid;grid-template-columns:repeat(6,62px);grid-auto-rows:62px;justify-content:start;align-content:start;gap:4px;}
+  .istack{width:62px;height:62px;background:var(--rc,#8d8256);border:4px solid color-mix(in srgb, var(--rc) 55%, black);border-radius:8px;padding:4px;cursor:grab;position:relative;box-sizing:border-box;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;}
   .istack:active{cursor:grabbing;}
   .istack:hover{transform:translateY(-1px);}
-  .istack .picn{width:24px;height:24px;}
-  .istack .pname{font-size:8px;font-weight:800;color:#2a2a2a;}
-  .istack .pcount{position:absolute;top:2px;right:3px;font-size:8px;font-weight:900;color:#fff;background:rgba(0,0,0,.65);padding:0 3px;border-radius:6px;}
+  .istack .picn{width:26px;height:26px;}
+  .istack .pname{font-size:10px;font-weight:800;color:#fff;}
+  .istack .pname.long, .lbname.long{font-size:8px;}
+  .istack .pcount{position:absolute;top:2px;left:3px;font-size:9px;font-weight:900;color:#fff;background:rgba(0,0,0,.65);padding:0 3px;border-radius:6px;}
+  .istack .ptier{position:absolute;top:2px;right:3px;font-size:9px;font-weight:900;color:#ffe27a;background:rgba(0,0,0,.65);padding:0 3px;border-radius:6px;}
+  .lbslot .lbtier{position:absolute;top:2px;right:3px;font-size:8px;font-weight:900;color:#ffe27a;background:rgba(0,0,0,.5);padding:0 3px;border-radius:6px;z-index:3;}
   .inv-empty{color:#eaf3ff;font-size:13px;grid-column:1/-1;font-weight:600;text-align:center;padding:20px;}
 </style>
 </head>
@@ -110,12 +227,33 @@
 <canvas id="c"></canvas>
 <div id="hud">
   <div>WASD move · Hold Left-Click expand/attack · Space/Right-Click contract</div>
-  <div>E inventory · M mobs · P petals</div>
+  <div>Z inventory · X essence · V mobs · B petals · C craft · Y forge · R swap loadout · 1-5 swap slot</div>
   <div id="stats"></div>
 </div>
 <div id="loadoutBar"></div>
-<div id="toasts"></div>
+<button id="devBtn" onclick="grantDevMode()">Dev Mode: +100 all petals, +1000 all essence</button>
+<button id="logoutBtn" style="display:none" onclick="logout()">Log out</button>
+<div id="levelHud">
+  <div id="levelHudText"></div>
+  <div id="levelHudBar">
+    <div id="levelHudFill"></div>
+    <div id="levelHudLabel"></div>
+  </div>
+</div>
 <div id="dead"><h1>You Died</h1><button onclick="respawn()">Respawn</button></div>
+
+<div id="authScreen">
+  <div class="auth-card">
+    <h1>Florr Clone</h1>
+    <input id="authUser" type="text" placeholder="Username" autocomplete="username">
+    <input id="authPass" type="password" placeholder="Password" autocomplete="current-password">
+    <div class="auth-actions">
+      <button id="authLoginBtn" onclick="doLogin()">Log In</button>
+      <button id="authSignupBtn" onclick="doSignup()">Sign Up</button>
+    </div>
+    <div class="auth-error" id="authError"></div>
+  </div>
+</div>
 
 <div id="panelBackdrop">
   <div class="panel" id="panelRoot"></div>
@@ -140,21 +278,18 @@ function pickWeighted(list){
   return list[list.length-1];
 }
 
-const ARENA = { w: 6400, h: 1500 };
+const ARENA = { w: 19200, h: 1500 }; // 3x width — each of the 5 biome strips is 3x its original size
 
-/* ── difficulty zones — left to right, each unlocking a higher rarity band.
-      Weights within a zone are the SAME per-rarity weights used globally, so the
-      relative rarity ordering (mythic rarer than legendary rarer than epic, etc.)
-      is preserved inside each zone, not just across the whole map. ── */
+/* ── difficulty zones — left to right, each locked to a mob-level band. ── */
 const ZONES = [
-  { name:'Easy',   bg:'#1e8a42', rarities:['common','unusual','rare'] },
-  { name:'Medium', bg:'#a68a1e', rarities:['unusual','rare','epic','legendary'] },
-  { name:'Hard',   bg:'#8a2e1e', rarities:['epic','legendary','mythic'] },
+  { name:'Garden',  idx:0, bg:'#1e8a42', levels:[1,5,10] },
+  { name:'Desert',  idx:1, bg:'#a68a1e', levels:[15,20,25] },
+  { name:'Mesa',    idx:2, bg:'#8a2e1e', levels:[30,35,40] },
+  { name:'Glacier', idx:3, bg:'#bfe0e8', levels:[45,50,55] },
+  { name:'Abyss',   idx:4, bg:'#232326', levels:[70] },
 ];
 function zoneAt(x){
-  if (x < ARENA.w/3) return ZONES[0];
-  if (x < ARENA.w*2/3) return ZONES[1];
-  return ZONES[2];
+  return ZONES[clamp(Math.floor(x / (ARENA.w/ZONES.length)), 0, ZONES.length-1)];
 }
 const cam = { x: 0, y: 0 };
 
@@ -163,12 +298,18 @@ const cam = { x: 0, y: 0 };
    ══════════════════════════════════════════ */
 const keys = {};
 addEventListener('keydown', e => {
+  if (!authed) return; // don't let game hotkeys fire while typing in the login form
   const k = e.key.toLowerCase();
   keys[k] = true;
   if (e.code === 'Space') { keys[' '] = true; e.preventDefault(); }
-  if (k==='e') togglePanel('inventory');
-  else if (k==='m') togglePanel('mob');
-  else if (k==='p') togglePanel('petal');
+  if (k==='z') togglePanel('inventory');
+  else if (k==='v') togglePanel('mob');
+  else if (k==='b') togglePanel('petal');
+  else if (k==='c') togglePanel('craft');
+  else if (k==='y') togglePanel('forge');
+  else if (k==='x') togglePanel('essence');
+  else if (k==='r') setActiveLoadout(1-activeLoadout);
+  else if (k>='1' && k<='5') quickSwapSlot(k.charCodeAt(0) - '1'.charCodeAt(0));
   else if (k==='escape') closePanel();
 });
 addEventListener('keyup', e => {
@@ -176,60 +317,173 @@ addEventListener('keyup', e => {
   if (e.code === 'Space') keys[' '] = false;
 });
 let mouseDownL = false, mouseDownR = false;
-addEventListener('mousedown', e => { if(e.button===0) mouseDownL=true; if(e.button===2) mouseDownR=true; });
+// clicks/drags on UI (panels, hotbar, death screen) shouldn't be read as attack input —
+// needed now that the game keeps running while panels are open
+function isUiTarget(t){ return t.closest && t.closest('.panel, #loadoutBar, #dead'); }
+addEventListener('mousedown', e => { if (isUiTarget(e.target)) return; if(e.button===0) mouseDownL=true; if(e.button===2) mouseDownR=true; });
 addEventListener('mouseup',   e => { if(e.button===0) mouseDownL=false; if(e.button===2) mouseDownR=false; });
 addEventListener('contextmenu', e => e.preventDefault());
 
 /* ══════════════════════════════════════════
-   RARITY & SCALING
+   RARITY (cosmetic, fixed per petal) & TIER (power progression, 1-6)
    ══════════════════════════════════════════ */
 const RARITIES = ['common','unusual','rare','epic','legendary','mythic'];
 const RARITY_INFO = {
-  common:    { name:'Common',    color:'#7eef6d', mobStep:1,  petalStep:1,  weight:8000 },
-  unusual:   { name:'Unusual',   color:'#ffe65d', mobStep:3,  petalStep:3,  weight:1700 },
-  rare:      { name:'Rare',      color:'#4d52e3', mobStep:3,  petalStep:3,  weight:270 },
-  epic:      { name:'Epic',      color:'#861fde', mobStep:5,  petalStep:3,  weight:25 },
-  legendary: { name:'Legendary', color:'#de1f1f', mobStep:7,  petalStep:5,  weight:4 },
-  mythic:    { name:'Mythic',    color:'#1fdbde', mobStep:20, petalStep:20, weight:1 },
+  common:    { name:'Common',    color:'#7eef6d' },
+  unusual:   { name:'Unusual',   color:'#ffe65d' },
+  rare:      { name:'Rare',      color:'#4d52e3' },
+  epic:      { name:'Epic',      color:'#861fde' },
+  legendary: { name:'Legendary', color:'#de1f1f' },
+  mythic:    { name:'Mythic',    color:'#1fdbde' },
 };
-function buildScale(stepKey){
-  const scale = {}; let acc = 1;
-  RARITIES.forEach(r => { acc *= RARITY_INFO[r][stepKey]; scale[r] = acc; });
-  return scale;
+// which rarity (→ container color) each petal belongs to — fixed forever, unrelated to tier
+const PETAL_RARITY = {
+  basic:'common', rose:'common', rock:'common', light:'common', stinger:'common',
+  faster:'unusual', leaf:'unusual', honey:'unusual',
+  web:'rare', mandible:'rare', dahlia:'rare',
+  heavy:'epic', pollen:'epic',
+  wing:'legendary', tulip:'legendary',
+  thirdEye:'mythic', moon:'mythic',
+};
+const TIERS = [1,2,3,4,5,6];
+const MAX_TIER = 6;
+const TIER_ROMAN = ['','I','II','III','IV','V','VI'];
+function toRoman(tier){ return TIER_ROMAN[tier] || String(tier); }
+// Inventory sorts rarity high→low; every other petal-listing menu (Craft, Petal Gallery,
+// Forge) sorts low→high instead
+const RARITY_ORDER_DESC = [...RARITIES].reverse();
+function byRarityThenName(a,b){
+  return RARITY_ORDER_DESC.indexOf(PETAL_RARITY[a]) - RARITY_ORDER_DESC.indexOf(PETAL_RARITY[b])
+    || PETAL_DEFS[a].name.localeCompare(PETAL_DEFS[b].name);
 }
-const MOB_SCALE = buildScale('mobStep');
-const PETAL_SCALE = buildScale('petalStep');
-const SIZE_SCALE = { common:1, unusual:1.1, rare:1.22, epic:1.4, legendary:1.65, mythic:2.1 };
-function pscale(def, key, rarity){ return (def[key]||0) * PETAL_SCALE[rarity]; }
+function byRarityThenNameAsc(a,b){
+  return RARITIES.indexOf(PETAL_RARITY[a]) - RARITIES.indexOf(PETAL_RARITY[b])
+    || PETAL_DEFS[a].name.localeCompare(PETAL_DEFS[b].name);
+}
+// every petal scales 3x per tier (mythics never tier past 1, so this never applies to them)
+function tierStep(petalId){ return 3; }
+function tierScale(petalId, tier){ return Math.pow(tierStep(petalId), (tier||1)-1); }
+// a handful of special stats scale at their own rate instead of the standard 3x/tier —
+// a step of 1 means "flat, never scales with tier" (1^anything === 1)
+const SPECIAL_TIER_STEP = {
+  wing:      { reach: 1 },        // always exactly its base reach, regardless of tier
+  faster:    { rotBonus: 1.2 },
+  thirdEye:  { rangeBonus: 1 },   // always exactly +100% — it only ever exists at mythic tier 6
+  mandible:  { slowMult: 1.5, slowDur: 1.5 },
+  honey:     { slowMult: 1.5, slowDur: 1.5 },
+};
+function specialTierScale(petalId, statKey, tier){
+  const override = SPECIAL_TIER_STEP[petalId] && SPECIAL_TIER_STEP[petalId][statKey];
+  const step = override != null ? override : tierStep(petalId);
+  return Math.pow(step, (tier||1)-1);
+}
+// flat compensation multiplier on health/damage/heal for harder-to-get rarities — petals no
+// longer out-scale each other via rarity crafting, so rarity buffs this way instead
+const RARITY_BUFF = { common:1, unusual:1, rare:2, epic:4, legendary:8, mythic:1 };
+// rarer petals are forged straight into a higher starting tier — they immediately carry that
+// tier's stat buffs, rather than starting from scratch at tier 1 like commons do
+const RARITY_START_TIER = { common:1, unusual:2, rare:3, epic:4, legendary:5, mythic:6 };
+function tierPossible(petal, tier){ return tier >= RARITY_START_TIER[PETAL_RARITY[petal]]; }
+function pscale(def, key, petalId, tier){
+  const rarity = PETAL_RARITY[petalId];
+  if (petalId==='moon'){
+    if (key==='health') return Infinity;
+    if (key==='damage') return (def.damage||0) * 10 * tierScale(petalId, tier);
+  }
+  const buff = RARITY_BUFF[rarity] != null ? RARITY_BUFF[rarity] : 1;
+  return (def[key]||0) * buff * tierScale(petalId, tier);
+}
+// secondary "buff" stats (rotation speed, range, reach, slow strength) scale with the same
+// per-tier metric as normal stats — no separate rarity multiplier for these
+function scaledSlowMult(def, petalId, tier){
+  const reduction = (1 - (def.slowMult!=null ? def.slowMult : 1)) * specialTierScale(petalId, 'slowMult', tier);
+  return clamp(1 - reduction, 0, 1);
+}
+function scaledSlowDur(def, petalId, tier){ return (def.slowDur||1.5) * specialTierScale(petalId, 'slowDur', tier); }
+// bonus max-flower-HP multiplier while equipped (Dahlia/Tulip) — base value at tier 1, scaling
+// with that petal's own tier step just like every other stat
+const FLOWER_HP_PETALS = { dahlia: 2, tulip: 5 };
 
 /* ══════════════════════════════════════════
-   DROP TABLES  ·  {mobRarity: {tier: [{r:petalRarity, p:percent}, ...]}}
+   DROP TABLES  ·  per mob level, the % chance for EACH petal in a mob's drop list to drop,
+   keyed by that petal's fixed rarity — every petal on the list is rolled independently
    ══════════════════════════════════════════ */
-const DROP_TABLES = {
-  common:    { extra:[{r:'common',p:25}],  base:[{r:'common',p:10}] },
-  unusual:   { extra:[{r:'unusual',p:10},{r:'common',p:50}], base:[{r:'unusual',p:5},{r:'common',p:25}] },
-  rare:      { extra:[{r:'rare',p:3},{r:'unusual',p:15},{r:'common',p:82}],
-               base:[{r:'rare',p:1},{r:'unusual',p:5},{r:'common',p:94}],
-               subbase:[{r:'rare',p:2.5}] },
-  epic:      { extra:[{r:'epic',p:3},{r:'rare',p:15},{r:'unusual',p:82}],
-               base:[{r:'epic',p:1},{r:'rare',p:5},{r:'unusual',p:94}],
-               subbase:[{r:'rare',p:10},{r:'epic',p:0.5}],
-               abyssmal:[{r:'epic',p:1.5}] },
-  legendary: { extra:[{r:'legendary',p:3},{r:'epic',p:15},{r:'rare',p:82}],
-               base:[{r:'legendary',p:1},{r:'epic',p:5},{r:'rare',p:94}],
-               subbase:[{r:'rare',p:80},{r:'epic',p:20}],
-               abyssmal:[{r:'legendary',p:0.1},{r:'epic',p:39.9}] },
-  mythic:    { extra:[{r:'legendary',p:100}], base:[{r:'legendary',p:100}],
-               subbase:[{r:'legendary',p:10},{r:'epic',p:90}],
-               abyssmal:[{r:'legendary',p:10},{r:'epic',p:90}],
-               hidden:[{r:'legendary',p:1}] },
+const DROP_RATE_TABLE = {
+  1:  { common:15,  unusual:1,   rare:0.1, epic:0,    legendary:0,    mythic:0 },
+  5:  { common:30,  unusual:2,   rare:0.2, epic:0,    legendary:0,    mythic:0 },
+  10: { common:50,  unusual:5,   rare:0.3, epic:0,    legendary:0,    mythic:0 },
+  15: { common:100, unusual:15,  rare:1,   epic:0.1,  legendary:0,    mythic:0 },
+  20: { common:100, unusual:30,  rare:2,   epic:0.2,  legendary:0,    mythic:0 },
+  25: { common:100, unusual:50,  rare:5,   epic:0.3,  legendary:0,    mythic:0 },
+  30: { common:100, unusual:100, rare:10,  epic:0.5,  legendary:0.05, mythic:0 },
+  35: { common:100, unusual:100, rare:20,  epic:1,    legendary:0.1,  mythic:0 },
+  40: { common:100, unusual:100, rare:40,  epic:3,    legendary:0.2,  mythic:0 },
+  45: { common:100, unusual:100, rare:80,  epic:5,    legendary:1,    mythic:0.001 },
+  50: { common:100, unusual:100, rare:80,  epic:10,   legendary:2,    mythic:0.005 },
+  55: { common:100, unusual:100, rare:80,  epic:20,   legendary:3,    mythic:0.01 },
+  70: { common:100, unusual:100, rare:100, epic:50,   legendary:10,   mythic:0.1 },
 };
-function rollDrop(mobRarity, tier){
-  const table = DROP_TABLES[mobRarity] && DROP_TABLES[mobRarity][tier];
-  if (!table) return null;
-  let roll = Math.random()*100;
-  for (const entry of table){ if (roll < entry.p) return entry.r; roll -= entry.p; }
-  return null;
+/* ── Zone jackpots (multicopies) ──────────────────────────────────────────────────────────
+   Each rarity's jackpot multiplier is introduced one zone later than the previous rarity's
+   (common@zone1, unusual@zone2, rare@zone3, epic@zone4, legendary@zone5 — mythic never gets one),
+   and every zone from there on adds the next multiplier in the shared sequence 5/25/200/2000/50000.
+   Within a zone, mobs come in 3 level-tiers (e.g. Garden = levels 1/5/10 = tier 1/2/3). A jackpot's
+   roll chance depends on how many zones past ITS OWN introduction zone the mob's zone is:
+     - 0 zones past ("just learned"): 2% / 5% / 20% for tier 1/2/3
+     - 1+ zones past ("risen"):        50% / 75% / 100% for tier 1/2/3
+   This chance is a percentage OF the drop already having happened, not a separate independent
+   roll — a jackpot can only apply to a rarity that actually dropped. When several jackpot tiers
+   are simultaneously active (e.g. common in zone 5 has all 5), the highest multiplier is tried
+   first, falling through to the next-highest, and so on until one hits (guaranteed once a 100%
+   tier is reached). Abyss has only one mob level, so it counts as tier 3 (the zone's hardest). ──*/
+const ZONE_MULTIPLIER_SEQUENCE = [5, 25, 200, 2000, 50000];
+const RARITY_INTRO_ZONE = { common:1, unusual:2, rare:3, epic:4, legendary:5 }; // mythic: none
+const MULTICOPY_CHANCE_NEW   = [2, 5, 20];   // 0 zones past introduction, by mob sub-tier 1/2/3
+const MULTICOPY_CHANCE_RISEN = [50, 75, 100]; // 1+ zones past introduction, by mob sub-tier 1/2/3
+// hidden jackpots — universal (any rarity, any zone), never shown in the gallery, and they
+// stack multiplicatively with whatever the zone jackpot above already rolled
+const HIDDEN_JACKPOTS = [ {mult:500, pct:0.1}, {mult:20, pct:1}, {mult:5, pct:5} ]; // highest first
+// the zone jackpot tiers for a rarity, ascending by zone (== ascending by multiplier)
+function zoneJackpotTiers(rarity){
+  const introZone = RARITY_INTRO_ZONE[rarity];
+  if (introZone==null) return [];
+  const tiers = [];
+  for (let i=0; introZone+i<=5; i++) tiers.push({ zone: introZone+i, mult: ZONE_MULTIPLIER_SEQUENCE[i] });
+  return tiers;
+}
+function zoneAndSubTierForLevel(level){
+  const zone = ZONES.find(z => z.levels.includes(level));
+  if (!zone) return null;
+  const subTier = zone.levels.length===1 ? 3 : zone.levels.indexOf(level)+1;
+  return { zoneNum: zone.idx+1, subTier };
+}
+function rollZoneJackpot(rarity, zoneNum, subTier){
+  const tiers = zoneJackpotTiers(rarity);
+  for (let i=tiers.length-1; i>=0; i--){
+    const t = tiers[i];
+    if (t.zone > zoneNum) continue; // not introduced yet at this mob's zone
+    const zonesPast = zoneNum - t.zone;
+    const chance = zonesPast===0 ? MULTICOPY_CHANCE_NEW[subTier-1] : MULTICOPY_CHANCE_RISEN[subTier-1];
+    if (Math.random()*100 < chance) return t.mult;
+  }
+  return 1;
+}
+function rollHiddenJackpot(){
+  for (const h of HIDDEN_JACKPOTS){ if (Math.random()*100 < h.pct) return h.mult; }
+  return 1;
+}
+function rollMobDrops(m){
+  const table = DROP_RATE_TABLE[m.level];
+  if (!table) return;
+  const zt = zoneAndSubTierForLevel(m.level);
+  for (const rarity of MOB_DEFS[m.type].drops){
+    const pct = table[rarity] || 0;
+    if (Math.random()*100 < pct){
+      const zoneMult = zt ? rollZoneJackpot(rarity, zt.zoneNum, zt.subTier) : 1;
+      const count = zoneMult * rollHiddenJackpot();
+      spawnEssencePickup(m.x, m.y, rarity, count);
+    }
+  }
 }
 
 /* ══════════════════════════════════════════
@@ -237,26 +491,32 @@ function rollDrop(mobRarity, tier){
    ══════════════════════════════════════════ */
 const PETAL_DEFS = {
   basic:    { name:'Basic',    color:'#f2f2f2', shape:'circle', health:10, damage:10, reload:2.5, desc:'A balanced starting petal.' },
-  wing:     { name:'Wing',     color:'#eaeaea', shape:'drop',   health:10, damage:10, reload:2.1, reach:24, desc:"Extends a little further when attacking and reloads a bit faster." },
+  wing:     { name:'Wing',     color:'#eaeaea', shape:'drop',   health:10, damage:10, reload:2.1, reach:36, desc:"Extends a little further when attacking and reloads a bit faster." },
   leaf:     { name:'Leaf',     color:'#4ade80', shape:'leaf',   health:10, damage:10, reload:2.5, healPerSec:1, desc:'Passively heals the flower a little while equipped.' },
-  rose:     { name:'Rose',     color:'#f472b6', shape:'circle', health:50, damage:0,  reload:2.5, armTime:0.5, healBurst:30, desc:'Deals no damage but has hugely improved HP. Once fully healed it arms for 0.5s, then self-destructs for a big heal.' },
+  rose:     { name:'Rose',     color:'#f472b6', shape:'circle', health:100, damage:2,  reload:2.5, armTime:0.5, healBurst:30, defensive:true, desc:"Deals minimal damage but has hugely improved HP. Defensive — doesn't expand outward when you attack. Arms for 0.5s once you need healing, then self-destructs for a big heal." },
   light:    { name:'Light',    color:'#fff27a', shape:'ring',   health:10, damage:10, reload:1.0, desc:'Reloads significantly faster than a basic petal.' },
-  stinger:  { name:'Stinger',  color:'#f5c542', shape:'spike',  health:1,  damage:60, reload:4.0, desc:'Extremely fragile with a slow reload, but deals ridiculous damage.' },
+  stinger:  { name:'Stinger',  color:'#1a1a1a', shape:'triangleSide', health:1,  damage:45, reload:4.0, desc:'Extremely fragile with a slow reload, but deals ridiculous damage.' },
   honey:    { name:'Honey',    color:'#e8a916', shape:'drop',   health:10, damage:1,  reload:2.5, slowMult:0.5, slowDur:2, desc:"Deals 10x less damage, but halves a mob's movement speed on hit." },
-  faster:   { name:'Faster',   color:'#7dd3fc', shape:'chevron',health:10, damage:10, reload:2.1, rotBonus:0.35, desc:'Reloads a little faster and speeds up your whole petal ring while active.' },
+  faster:   { name:'Faster',   color:'#ffcc33', shape:'circle', health:10, damage:10, reload:2.1, rotBonus:0.35, desc:'Reloads a little faster and speeds up your whole petal ring while active.' },
   web:      { name:'Web',      color:'#d1d5db', shape:'web',    health:10, damage:10, reload:2.5, projectile:true, projSpeed:520, projLife:3, fireRange:300, desc:'Fires at a nearby mob, flying fast in a straight line until it hits or expires after 3s.' },
   mandible: { name:'Mandible', color:'#a8763e', shape:'pincer', health:10, damage:10, reload:2.5, slowMult:0.75, slowDur:2, desc:"Basic stats, but slows a mob's movement to 0.75x on hit." },
-  dahlia:   { name:'Dahlia',   color:'#f472b6', shape:'cluster',health:50, damage:0,  reload:1.875, armTime:0.5, healBurst:7.5, parts:3, desc:'Three miniature Roses — faster reload, but a much smaller heal each.' },
+  dahlia:   { name:'Dahlia',   color:'#f472b6', shape:'cluster',health:50, damage:0,  reload:1.875, armTime:0.5, healBurst:7.875, defensive:true, parts:3, desc:'Three miniature Roses — faster reload, but a much smaller heal each.' },
   pollen:   { name:'Pollen',   color:'#fff27a', shape:'dust',   health:10, damage:4,  reload:1.0, parts:3, desc:'Three miniature Lights, each hitting for 0.4x damage.' },
-  thirdEye: { name:'Third Eye',color:'#a855f7', shape:'eye',    health:10, damage:10, reload:2.5, rangeBonus:0.8, desc:'Drastically extends the reach of your whole petal ring while attacking.' },
-  tulip:    { name:'Tulip',    color:'#f472b6', shape:'tulipflower', health:50, damage:0, reload:2.5, armTime:0.5, healBurst:30, parts:2, desc:'Spawns two full Roses.' },
-  rock:     { name:'Rock',     color:'#9c9c9c', shape:'rock',   health:30, damage:10, reload:2.5, desc:'Higher HP than a basic petal.' },
+  thirdEye: { name:'Third Eye',color:'#a855f7', shape:'eye',    health:10, damage:10, reload:2.5, rangeBonus:1, desc:'Drastically extends the reach of your whole petal ring while attacking.' },
+  tulip:    { name:'Tulip',    color:'#f472b6', shape:'tulipflower', health:50, damage:0, reload:2.5, armTime:0.5, healBurst:30, defensive:true, parts:2, desc:'Spawns two full Roses.' },
+  rock:     { name:'Rock',     color:'#9c9c9c', shape:'rock',   health:25, damage:7, reload:3.5, desc:'Higher HP than a basic petal, at the cost of lower damage and a slower reload.' },
   heavy:    { name:'Heavy',    color:'#6b6b6b', shape:'rock',   health:60, damage:10, reload:4.0, desc:'Significantly higher HP than normal, at the cost of a slow reload.' },
   moon:     { name:'Moon',     color:'#dfe7ff', shape:'crescent',health:500,damage:10, reload:10.0, desc:'Ridiculous amounts of HP, but an extremely slow reload.' },
 };
+// Forging — a guaranteed-success way to obtain ANY petal at tier 1, spending essence of that
+// petal's rarity. Cost is a flat 5 for common/unusual/rare, 10 for epic+, shown across the same
+// 5-slot craft-pentagon layout (1 essence/slot, or 2/slot for epic+).
+function forgeCost(rarity){ return (rarity==='epic'||rarity==='legendary'||rarity==='mythic') ? 10 : 5; }
 const ORBIT = { restR:60, expandR:118, contractR:26, rotSpeed:2.3 };
 const PETAL_HIT_CD = 0.35;
-const LOADOUT_SIZE = 5;
+const BASE_LOADOUT_SIZE = 5;
+const MAX_LOADOUT_SIZE = 10;
+const SLOT_UNLOCK_INTERVAL = 15; // levels between each new petal slot
 const SPAWN_DUR = 0.32;   // time for a petal to emerge from the flower into orbit
 const EAT_DUR = 0.38;     // time for a self-destructing petal (Rose family) to be drawn into the flower
 const HP_EASE = 6;        // health-bar catch-up rate (higher = snappier)
@@ -264,48 +524,130 @@ function easeOutCubic(t){ return 1 - Math.pow(1-t, 3); }
 function easeInCubic(t){ return t*t*t; }
 
 /* ══════════════════════════════════════════
+   LEVELING  ·  XP survives death; HP/slots are derived from level, not stored per-life
+   ══════════════════════════════════════════ */
+const BASE_MAX_HEALTH = 260;
+let playerLevel = 1;
+let playerXp = 0;
+// HP curve is piecewise: a clean 3x/15-levels up to 45, then three steeper stages layered on
+// top (5x by 60, 10x by 75, another 10x by 90) — each stage compounds smoothly within itself
+// via the same exponential-interpolation shape as the base curve.
+const HP_45 = BASE_MAX_HEALTH * Math.pow(3, 44/SLOT_UNLOCK_INTERVAL);
+const HP_60 = HP_45 * 5;
+const HP_75 = HP_60 * 10;
+function maxHealthForLevel(level){
+  if (level <= 45) return Math.round(BASE_MAX_HEALTH * Math.pow(3, (level-1)/SLOT_UNLOCK_INTERVAL));
+  if (level <= 60) return Math.round(HP_45 * Math.pow(5, (level-45)/SLOT_UNLOCK_INTERVAL));
+  if (level <= 75) return Math.round(HP_60 * Math.pow(10, (level-60)/SLOT_UNLOCK_INTERVAL));
+  // 75-90 mirrors the 60-75 stage (another 10x), and keeps extending at that rate beyond 90
+  return Math.round(HP_75 * Math.pow(10, (level-75)/SLOT_UNLOCK_INTERVAL));
+}
+function slotsForLevel(level){ return Math.min(MAX_LOADOUT_SIZE, BASE_LOADOUT_SIZE + Math.floor(level/SLOT_UNLOCK_INTERVAL)); }
+// quadratic and gentle at low levels (level 1 costs almost nothing) so early leveling is fast;
+// baseline tuned so total XP lands around level 15 by your first rare, 30 by epics, 45 by the
+// earliest legendary, 75 by a mythic — then scaled up 2.5x across the board to make leveling
+// harder overall while keeping that same relative pacing between milestones
+function xpToNext(level){ return Math.max(20, Math.round(2.675 * level * level)); }
+// XP is derived from the mob's actual (level-scaled) health and damage instead of a
+// hand-picked constant, so tougher mobs — at any level — are always worth more
+function xpForKill(mobTypeKey, level){
+  const def = MOB_DEFS[mobTypeKey];
+  const scale = mobLevelScale(level);
+  return Math.max(1, Math.round(0.25 * Math.sqrt(def.health*scale * def.contactDmg*scale)));
+}
+function grantXp(amount){
+  if (amount<=0) return;
+  playerXp += amount;
+  let leveledUp = false;
+  while (playerXp >= xpToNext(playerLevel)){
+    playerXp -= xpToNext(playerLevel);
+    playerLevel++;
+    leveledUp = true;
+  }
+  if (!leveledUp) return;
+  const newSlots = slotsForLevel(playerLevel);
+  if (loadouts.length && newSlots > loadouts[0].length){
+    for (let li=0; li<loadouts.length; li++){
+      while (loadouts[li].length < newSlots) loadouts[li].push({ petal:'basic', tier:1 });
+    }
+    rebuildInstances(); // also recomputes max health via applyMaxHealthChange()
+  } else {
+    applyMaxHealthChange();
+  }
+  saveProgress();
+}
+const NUM_SUFFIXES = ['','K','M','B','T','Qa','Qi','Sx','Sp','Oc','No','Dc'];
+function formatNum(n){
+  n = Math.max(0, n);
+  if (n < 1000) return Math.floor(n).toString();
+  let tier = Math.floor(Math.log10(n)/3);
+  if (tier >= NUM_SUFFIXES.length) tier = NUM_SUFFIXES.length-1;
+  const scaled = n / Math.pow(1000, tier);
+  return scaled.toFixed(scaled < 10 ? 2 : 1) + NUM_SUFFIXES[tier];
+}
+function updateLevelHud(){
+  const need = xpToNext(playerLevel);
+  const pct = clamp(playerXp/need, 0, 1) * 100;
+  document.getElementById('levelHudText').textContent =
+    `${formatNum(playerXp)} / ${formatNum(need)} xp | ${formatNum(player.maxHealth)} hp`;
+  document.getElementById('levelHudFill').style.width = pct + '%';
+  document.getElementById('levelHudLabel').textContent = `Lvl ${playerLevel} Flower [${pct.toFixed(2)}%]`;
+}
+
+/* ══════════════════════════════════════════
    MOB DEFINITIONS
    ══════════════════════════════════════════ */
 const MOB_KNOCKBACK = 155; // uniform for every mob unless a gimmick overrides it
+// drops: every mob can drop essence of any rarity for now (deduped list kept purely so the
+// per-mob "flavor" is easy to bring back later — currently all 6 rarities for every mob)
+const ALL_RARITIES_DROP = [...RARITIES];
+// stats rebalanced around a new Ladybug baseline of 100 hp / 10 dmg, scaling every other mob's
+// old health by 100/45 and old contactDmg/petalDmg by 10/8 to preserve their existing ratios
 const MOB_DEFS = {
   ant: {
-    name:'Ant', r:20, health:55, contactDmg:14, petalDmg:10, mass:3, friction:7,
+    name:'Ant', r:20, health:122, contactDmg:17.5, petalDmg:12.5, mass:3, friction:7,
     speed:200, behavior:'neutral', color:'#6b3f1d', weight:25,
-    drops:[ {petal:'wing',tier:'base'}, {petal:'leaf',tier:'subbase'}, {petal:'mandible',tier:'abyssmal'} ],
+    drops:ALL_RARITIES_DROP,
   },
   ladybug: {
-    name:'Ladybug', r:22, health:45, contactDmg:8, petalDmg:6, mass:1.3, friction:6,
+    name:'Ladybug', r:22, health:100, contactDmg:10, petalDmg:7.5, mass:1.3, friction:6,
     speed:60, behavior:'passive', color:'#e6352b', weight:30,
-    drops:[ {petal:'rose',tier:'base'}, {petal:'light',tier:'subbase'}, {petal:'dahlia',tier:'abyssmal'}, {petal:'tulip',tier:'hidden'} ],
+    drops:ALL_RARITIES_DROP,
   },
   bee: {
-    name:'Bee', r:16, health:30, contactDmg:24, petalDmg:14, mass:1.2, friction:5,
+    name:'Bee', r:16, health:67, contactDmg:30, petalDmg:17.5, mass:1.2, friction:5,
     speed:200, behavior:'neutral-swerve', color:'#ffcf33', weight:20,
-    drops:[ {petal:'stinger',tier:'base'}, {petal:'honey',tier:'subbase'}, {petal:'pollen',tier:'abyssmal'} ],
+    drops:ALL_RARITIES_DROP,
   },
   spider: {
-    name:'Spider', r:24, health:32, contactDmg:14, petalDmg:9, mass:8, friction:8,
+    name:'Spider', r:24, health:71, contactDmg:17.5, petalDmg:11.25, mass:8, friction:8,
     speed:240, behavior:'hostile', aggroRange:420, color:'#2b2b33', weight:15,
-    drops:[ {petal:'faster',tier:'base'}, {petal:'web',tier:'subbase'}, {petal:'thirdEye',tier:'abyssmal'} ],
+    drops:ALL_RARITIES_DROP,
   },
   rock: {
-    name:'Rock', r:30, health:130, contactDmg:4, petalDmg:9, mass:45, friction:12,
+    name:'Rock', r:30, health:289, contactDmg:5, petalDmg:11.25, mass:45, friction:12,
     speed:0, behavior:'stationary', color:'#8d8d94', weight:10,
-    drops:[ {petal:'rock',tier:'base'}, {petal:'heavy',tier:'subbase'}, {petal:'moon',tier:'hidden'} ],
+    drops:ALL_RARITIES_DROP,
+  },
+  beetle: {
+    name:'Beetle', r:44, health:133, contactDmg:27.5, petalDmg:16.25, mass:5, friction:7,
+    speed:300, behavior:'hostile', aggroRange:260, color:'#3a2a6b', weight:12, minZone:1, // can't spawn in the Garden zone
+    drops:ALL_RARITIES_DROP,
   },
 };
-function behaviorText(def, mobKey, rarity){
+// level thresholds picked to roughly track where each rarity band starts becoming common in the drop tables
+function behaviorText(def, mobKey, level){
   if (mobKey==='ladybug'){
-    const fightsBack = rarity && RARITIES.indexOf(rarity) >= RARITIES.indexOf('rare');
+    const fightsBack = level!=null && level>=30;
     return fightsBack
-      ? `Passive — but rare+ ladybugs fight back and chase at ${def.speed} spd once attacked.`
+      ? `Passive — but level 30+ ladybugs fight back and chase at ${def.speed} spd once attacked.`
       : 'Passive — drifts around, pauses, drifts again. Never fights back, even if attacked.';
   }
   if (mobKey==='bee'){
-    const fightsBack = rarity && rarity!=='common' && rarity!=='unusual';
+    const fightsBack = level!=null && level>=15;
     return fightsBack
       ? 'Neutral — ignores you until attacked, then runs at you while swerving side to side.'
-      : "Passive — common/unusual bees won't fight back, even if attacked.";
+      : "Passive — low-level bees won't fight back, even if attacked.";
   }
   switch(def.behavior){
     case 'passive': return 'Passive — drifts around, pauses, drifts again. Never attacks.';
@@ -316,22 +658,19 @@ function behaviorText(def, mobKey, rarity){
   }
   return '';
 }
-function petalSource(petalId){
-  for (const k in MOB_DEFS) for (const d of MOB_DEFS[k].drops) if (d.petal===petalId) return { mobKey:k, mob:MOB_DEFS[k].name, tier:d.tier };
-  return null;
-}
 
 /* ══════════════════════════════════════════
    PLAYER
    ══════════════════════════════════════════ */
 function makePlayer(){
+  const maxHP = maxHealthForLevel(playerLevel);
   return {
     x: ARENA.w/6, y: ARENA.h/2, r: 26,   // spawn inside the Easy zone, not the Medium zone at map-center
     mvx:0, mvy:0, kvx:0, kvy:0,
     maxSpeed:200, accel:12, decel:10, kFriction:9, knockback:0,
-    maxHealth:260, health:260, dispHealth:260,
+    maxHealth:maxHP, health:maxHP, dispHealth:maxHP,
     iframe:0, hurtFlash:0, kbLock:0,
-    petalAngle:0, orbitR: ORBIT.restR,
+    petalAngle:0, orbitR: ORBIT.restR, orbitRDef: ORBIT.restR,
     instances:[],
   };
 }
@@ -343,70 +682,150 @@ function iframeFor(knockback){
 }
 
 /* ── inventory / loadout ── */
-let inventory = {};         // "petal|rarity" -> count
-let discovered = new Set(); // petal ids ever obtained
-let loadout = [];
-let selectedSlot = null;
-function invKey(petal,rarity){ return petal+'|'+rarity; }
-function defaultLoadout(){ return Array.from({length:LOADOUT_SIZE}, ()=>({petal:'basic',rarity:'common'})); }
+let inventory = {};              // "petal|tier" -> count
+let discoveredPetals = new Set();// "petal|tier" ever obtained (set only by forging)
+let killedMobs = new Set();      // "mobType|level" ever killed
+let loadouts = [];               // two loadout sets — [0]=primary, [1]=secondary
+let activeLoadout = 0;
+function invKey(petal,tier){ return petal+'|'+tier; }
+// essence: generic, rarity-only currency dropped by mobs and spent at the Forge. Keyed by
+// name too (only 'base' exists for now) so multiple flavors per rarity can be added later.
+let essence = {};
+function essenceKey(rarity, name='base'){ return rarity+'|'+name; }
+// names too long to fit one line in a slot (e.g. "Third Eye") render smaller instead of wrapping
+function longNameCls(name){ return name.length > 7 ? 'long' : ''; }
+function defaultLoadout(){ return Array.from({length:slotsForLevel(playerLevel)}, ()=>({petal:'basic',tier:1})); }
+
+// max flower HP = the level curve, plus a stacking bonus from any equipped Dahlia/Tulip
+// (FLOWER_HP_PETALS), scaled by that petal's own tier progress
+function computeMaxHealth(){
+  let bonus = 0;
+  if (loadouts[activeLoadout]) loadouts[activeLoadout].forEach(slot=>{
+    const mult = FLOWER_HP_PETALS[slot.petal];
+    if (mult) bonus += (mult-1) * tierScale(slot.petal, slot.tier);
+  });
+  return maxHealthForLevel(playerLevel) * (1+bonus);
+}
+function applyMaxHealthChange(){
+  const newMax = computeMaxHealth();
+  const delta = newMax - player.maxHealth;
+  player.maxHealth = newMax;
+  player.health = Math.min(newMax, player.health + Math.max(0, delta));
+}
 
 function rebuildInstances(){
   player.instances = [];
-  loadout.forEach((slot,i)=>{
+  loadouts[activeLoadout].forEach((slot,i)=>{
     const def = PETAL_DEFS[slot.petal];
     const parts = def.parts||1;
     for (let p=0;p<parts;p++){
       player.instances.push({
-        slot:i, petal:slot.petal, rarity:slot.rarity, parts, partIndex:p,
-        health: pscale(def,'health',slot.rarity), broken:false, regenT:0, hitCd:0,
+        slot:i, petal:slot.petal, tier:slot.tier, parts, partIndex:p,
+        health: pscale(def,'health',slot.petal,slot.tier), broken:false, regenT:0, hitCd:0,
         armT: def.armTime||0, flying:false, vx:0, vy:0, life:0, x:player.x, y:player.y,
-        spawnT:0, eating:false, eatT:0, eatFromX:player.x, eatFromY:player.y, pendingHeal:0,
+        spawnT:0, eating:false, eatT:0, eatFromX:player.x, eatFromY:player.y, pendingHeal:0, reachEase:0,
       });
     }
   });
+  applyMaxHealthChange();
 }
-function equipFromInventory(petal, rarity){
-  const target = selectedSlot!==null ? selectedSlot : 0; // fallback for click-to-equip; drag-drop targets a slot directly
-  const k = invKey(petal,rarity);
-  if (!inventory[k] || inventory[k]<=0) return;
-  const old = loadout[target];
-  if (old.petal!=='basic'){ const ok=invKey(old.petal,old.rarity); inventory[ok]=(inventory[ok]||0)+1; }
-  inventory[k]--;
-  loadout[target] = { petal, rarity };
-  selectedSlot = null;
+function setActiveLoadout(li){
+  if (activeLoadout===li) return;
+  activeLoadout = li;
   rebuildInstances();
-  renderPanel();
+  if (openPanelName) renderPanel();
 }
-function selectSlot(i){
-  if (selectedSlot===i){ unequipSlot(i); selectedSlot=null; }
-  else selectedSlot = i;
-  renderPanel();
-}
-function unequipSlot(i){
-  const old = loadout[i];
-  if (old.petal!=='basic'){ const k=invKey(old.petal,old.rarity); inventory[k]=(inventory[k]||0)+1; }
-  loadout[i] = { petal:'basic', rarity:'common' };
-  rebuildInstances();
+// hotbar-only convenience: click a slot in either row to swap that one petal
+// between the primary and secondary loadout, without a full drag
+function quickSwapSlot(i){
+  const bar = document.getElementById('loadoutBar');
+  const rectA = slotRect(bar, 0, i), rectB = slotRect(bar, 1, i);
+  const a = loadouts[0][i], b = loadouts[1][i];
+  // the real slots keep showing their old contents until the flying icons actually arrive —
+  // swapping the data (and thus the DOM) immediately made them look like they'd already
+  // teleported before the animation caught up
+  flySwapIcon(rectA, rectB, a.petal, a.tier);
+  flySwapIcon(rectB, rectA, b.petal, b.tier);
+  setTimeout(()=>{
+    loadouts[0][i] = b;
+    loadouts[1][i] = a;
+    rebuildInstances();
+    if (openPanelName) renderPanel();
+  }, FLY_SWAP_DELAY);
 }
 
-/* ── pickups ── */
+/* ── slot swap fly animation — the two petals slide between their old and new
+     slots (which are always fixed-position boxes) instead of teleporting ── */
+function slotRect(container, li, i){
+  const el = container && container.querySelector(`[data-li="${li}"][data-i="${i}"]`);
+  return el ? el.getBoundingClientRect() : null;
+}
+const FLY_SWAP_DELAY = 220; // matches flySwapIcon's position/size transition duration
+function flySwapIcon(fromRect, toRect, petal, tier){
+  if (!fromRect || !toRect || petal==='basic') return;
+  const fromSize = Math.max(18, Math.min(fromRect.width, fromRect.height) - 6);
+  const toSize = Math.max(18, Math.min(toRect.width, toRect.height) - 6);
+  const rc = RARITY_INFO[PETAL_RARITY[petal]].color;
+  // fly the whole slot container (colored box + border), not just the bare petal icon —
+  // size transitions alongside position so it grows/shrinks smoothly as it moves, rather
+  // than snapping to its final size only once the flight finishes
+  const cv = document.createElement('div');
+  cv.style.cssText = `position:fixed;left:${fromRect.left+fromRect.width/2-fromSize/2}px;top:${fromRect.top+fromRect.height/2-fromSize/2}px;
+    width:${fromSize}px;height:${fromSize}px;box-sizing:border-box;z-index:200;pointer-events:none;
+    background:${rc};border:${Math.max(2,Math.round(fromSize*0.09))}px solid ${shadeColor(rc,-45)};border-radius:${Math.round(fromSize*0.2)}px;
+    box-shadow:0 3px 8px rgba(0,0,0,.4);
+    transition:left .22s cubic-bezier(.2,.8,.3,1),top .22s cubic-bezier(.2,.8,.3,1),
+      width .22s cubic-bezier(.2,.8,.3,1),height .22s cubic-bezier(.2,.8,.3,1),
+      border-width .22s cubic-bezier(.2,.8,.3,1),border-radius .22s cubic-bezier(.2,.8,.3,1),
+      opacity .18s ease .16s;`;
+  const icon = document.createElement('canvas');
+  icon.width = 40; icon.height = 40;
+  icon.style.cssText = 'width:100%;height:100%;display:block;';
+  drawPetalIcon(icon.getContext('2d'), petal, 20, 20, 16, tier);
+  cv.appendChild(icon);
+  document.body.appendChild(cv);
+  requestAnimationFrame(()=>{
+    cv.style.left = (toRect.left+toRect.width/2-toSize/2)+'px';
+    cv.style.top = (toRect.top+toRect.height/2-toSize/2)+'px';
+    cv.style.width = toSize+'px';
+    cv.style.height = toSize+'px';
+    cv.style.borderWidth = Math.max(2,Math.round(toSize*0.09))+'px';
+    cv.style.borderRadius = Math.round(toSize*0.2)+'px';
+    cv.style.opacity = '0';
+  });
+  setTimeout(()=>cv.remove(), 260);
+}
+
+/* ── pickups — mobs now drop essence (rarity-only), never petals directly ── */
 const pickups = [];
-function spawnPickup(x,y,petal,rarity){
-  pickups.push({ x, y, petal, rarity, vx:rand(-40,40), vy:rand(-40,40), born:performance.now()/1000 });
+const PICKUP_STACK_RANGE = 50; // nearby same-rarity essence drops merge into one stacked pickup instead of overlapping
+function spawnEssencePickup(x,y,rarity,count){
+  count = count||1;
+  const nearby = pickups.find(p => p.rarity===rarity && len(p.x-x, p.y-y) < PICKUP_STACK_RANGE);
+  if (nearby){ nearby.count += count; return; }
+  pickups.push({ x, y, rarity, count, vx:rand(-40,40), vy:rand(-40,40), born:performance.now()/1000 });
 }
 function collectPickup(p){
-  const k = invKey(p.petal,p.rarity);
-  inventory[k] = (inventory[k]||0)+1;
-  discovered.add(p.petal);
-  pushToast(`+1 ${PETAL_DEFS[p.petal].name} (${RARITY_INFO[p.rarity].name})`, RARITY_INFO[p.rarity].color);
-  if (openPanelName==='inventory') renderPanel();
+  const k = essenceKey(p.rarity);
+  essence[k] = (essence[k]||0)+(p.count||1);
+  if (openPanelName==='essence') renderPanel();
 }
-function pushToast(text, color){
-  const el = document.createElement('div');
-  el.className = 'toast'; el.style.setProperty('--rc', color); el.textContent = text;
-  document.getElementById('toasts').appendChild(el);
-  setTimeout(()=>{ el.classList.add('out'); setTimeout(()=>el.remove(), 450); }, 2200);
+function grantDevMode(){
+  Object.keys(PETAL_DEFS).filter(p=>p!=='basic').forEach(petal=>{
+    TIERS.forEach(tier=>{
+      if (tier < RARITY_START_TIER[PETAL_RARITY[petal]]) return; // petals never exist below their rarity's starting tier
+      const k = invKey(petal, tier);
+      inventory[k] = (inventory[k]||0) + 100;
+      discoveredPetals.add(k);
+    });
+  });
+  RARITIES.forEach(rarity=>{
+    const k = essenceKey(rarity);
+    essence[k] = (essence[k]||0) + 1000;
+  });
+  if (openPanelName) renderPanel();
 }
+window.grantDevMode = grantDevMode;
 
 /* ══════════════════════════════════════════
    MOB SPAWNING  ·  chunk-based density + rarity
@@ -414,15 +833,18 @@ function pushToast(text, color){
 const mobs = [];
 function rockShape(){ const n=7,out=[]; for(let i=0;i<n;i++) out.push(rand(0.78,1.12)); return out; }
 
-function spawnMob(typeKey, rarity, x, y){
-  const b = MOB_DEFS[typeKey], size = SIZE_SCALE[rarity];
+const MOB_LEVELS = [1,5,10,15,20,25,30,35,40,45,50,55,70];
+function mobLevelScale(level){ return Math.pow(3, Math.floor(level/5)); }
+const SIZE_BY_LEVEL = {1:1,5:1.05,10:1.1,15:1.15,20:1.2,25:1.3,30:1.4,35:1.5,40:1.6,45:1.8,50:2.0,55:2.3,70:3.2};
+function spawnMob(typeKey, level, x, y){
+  const b = MOB_DEFS[typeKey], scale = mobLevelScale(level), size = SIZE_BY_LEVEL[level] || 1;
   const m = {
-    type:typeKey, rarity, rarityName:RARITY_INFO[rarity].name, rarityColor:RARITY_INFO[rarity].color,
+    type:typeKey, level, levelScale:scale, spawnZoneIdx: zoneAt(x).idx,
     x, y, vx:0, vy:0,
     r: b.r*(1+(size-1)*0.5),
-    health: b.health*MOB_SCALE[rarity], maxHealth: b.health*MOB_SCALE[rarity], dispHealth: b.health*MOB_SCALE[rarity],
-    contactDmg: b.contactDmg*MOB_SCALE[rarity],
-    petalDmg:   b.petalDmg*MOB_SCALE[rarity],
+    health: b.health*scale, maxHealth: b.health*scale, dispHealth: b.health*scale,
+    contactDmg: b.contactDmg*scale,
+    petalDmg:   b.petalDmg*scale,
     knockback:  MOB_KNOCKBACK,
     mass:       b.mass*size,
     friction:   b.friction, speed:b.speed, color:b.color,
@@ -432,11 +854,21 @@ function spawnMob(typeKey, rarity, x, y){
   if (typeKey==='rock'){ m.spin=rand(0,TAU); m.verts=rockShape(); }
   mobs.push(m); return m;
 }
+// hostile mobs get more common the harder the zone; passive mobs get more common the easier it is.
+// neutral/stationary mobs are unaffected. A mob with minZone set can't spawn in easier zones at all.
+const HOSTILE_ZONE_MULT = [0.4, 0.8, 1.4, 2, 2.6];
+const PASSIVE_ZONE_MULT = [2.6, 2, 1.4, 0.8, 0.4];
+function zoneMobWeight(def, zoneIdx){
+  if (zoneIdx < (def.minZone||0)) return 0;
+  if (def.behavior==='hostile') return def.weight * HOSTILE_ZONE_MULT[zoneIdx];
+  if (def.behavior==='passive') return def.weight * PASSIVE_ZONE_MULT[zoneIdx];
+  return def.weight;
+}
 function spawnRandomMob(x,y){
-  const type   = pickWeighted(Object.keys(MOB_DEFS).map(k=>({ key:k, weight:MOB_DEFS[k].weight })));
-  const zone   = zoneAt(x);
-  const rarity = pickWeighted(zone.rarities.map(r=>({ key:r, weight:RARITY_INFO[r].weight })));
-  return spawnMob(type.key, rarity.key, x, y);
+  const zone  = zoneAt(x);
+  const type  = pickWeighted(Object.keys(MOB_DEFS).map(k=>({ key:k, weight: zoneMobWeight(MOB_DEFS[k], zone.idx) })));
+  const level = zone.levels[Math.floor(Math.random()*zone.levels.length)];
+  return spawnMob(type.key, level, x, y);
 }
 
 const CHUNK = 650, CHUNK_CAP = 3, SPAWN_TICK = 0.4, SPAWN_SAFE = 360;
@@ -531,6 +963,7 @@ function updateMob(m, dt){
   const def = MOB_DEFS[m.type];
   m.dispHealth += (m.health - m.dispHealth) * clamp(HP_EASE*dt, 0, 1);
   if (m.slowT>0) m.slowT -= dt;
+  if (m.hurtFlash>0) m.hurtFlash -= dt;
   if (m.type==='spider'){
     const speed = len(m.vx,m.vy);
     if (speed>8) m.facing = Math.atan2(m.vy,m.vx);
@@ -553,13 +986,6 @@ function updateMob(m, dt){
   m.x = clamp(m.x, m.r, ARENA.w-m.r);
   m.y = clamp(m.y, m.r, ARENA.h-m.r);
 }
-function rollMobDrops(m){
-  for (const entry of MOB_DEFS[m.type].drops){
-    const rarity = rollDrop(m.rarity, entry.tier);
-    if (rarity) spawnPickup(m.x, m.y, entry.petal, rarity);
-  }
-}
-
 /* ══════════════════════════════════════════
    PETAL INSTANCES  ·  position, reload, specials
    ══════════════════════════════════════════ */
@@ -568,11 +994,11 @@ function breakInstance(inst, def){
 }
 function orbitTarget(inst){
   const def = PETAL_DEFS[inst.petal];
-  const baseAngle = player.petalAngle + (inst.slot/LOADOUT_SIZE)*TAU;
+  const baseAngle = player.petalAngle + (inst.slot/loadouts[activeLoadout].length)*TAU;
   const partOffset = inst.parts>1 ? (inst.partIndex - (inst.parts-1)/2) * 0.26 : 0;
   const ang = baseAngle + partOffset;
-  let radius = player.orbitR;
-  if (mouseDownL && def.reach) radius += def.reach;
+  let radius = def.defensive ? player.orbitRDef : player.orbitR;
+  if (def.reach) radius += inst.reachEase||0;
   return { x: player.x + Math.cos(ang)*radius, y: player.y + Math.sin(ang)*radius };
 }
 function positionInstance(inst, dt){
@@ -592,19 +1018,26 @@ function updateInstances(dt){
   for (const inst of player.instances){
     const def = PETAL_DEFS[inst.petal];
     if (inst.broken || inst.flying) continue;
-    if (def.rotBonus) rotBonus += def.rotBonus;
-    if (def.rangeBonus) rangeBonus += def.rangeBonus;
+    if (def.rotBonus) rotBonus += def.rotBonus * specialTierScale(inst.petal, 'rotBonus', inst.tier);
+    if (def.rangeBonus) rangeBonus += def.rangeBonus * specialTierScale(inst.petal, 'rangeBonus', inst.tier);
   }
   player.auraRot = rotBonus; player.auraRange = rangeBonus;
 
   for (const inst of player.instances){
-    const def = PETAL_DEFS[inst.petal], rarity = inst.rarity;
+    const def = PETAL_DEFS[inst.petal], tier = inst.tier;
     if (inst.hitCd>0) inst.hitCd -= dt;
+
+    // Wing's (and any other def.reach petal's) attack-range extension eases in/out at the
+    // same rate as the orbit radius itself, instead of snapping instantly with mouseDownL
+    if (def.reach){
+      const targetReach = mouseDownL ? def.reach * specialTierScale(inst.petal, 'reach', tier) : 0;
+      inst.reachEase += (targetReach - inst.reachEase) * clamp(10*dt, 0, 1);
+    }
 
     if (inst.broken){
       inst.regenT -= dt;
       if (inst.regenT<=0){
-        inst.broken=false; inst.health = pscale(def,'health',rarity); inst.flying=false;
+        inst.broken=false; inst.health = pscale(def,'health',inst.petal,tier); inst.flying=false;
         inst.spawnT = 0; inst.eating = false;
         if (def.armTime) inst.armT = def.armTime;
       }
@@ -638,14 +1071,16 @@ function updateInstances(dt){
       } else if (inst.life<=0){ breakInstance(inst, def); continue; }
     }
 
-    if (def.healPerSec) player.health = Math.min(player.maxHealth, player.health + pscale(def,'healPerSec',rarity)*dt);
+    if (def.healPerSec) player.health = Math.min(player.maxHealth, player.health + pscale(def,'healPerSec',inst.petal,tier)*dt);
 
-    if (def.armTime && inst.armT>0){
+    // healing petals (armTime + healBurst) sit charged and idle at full HP instead of
+    // wasting themselves — the arm timer only ticks down once healing is actually needed
+    if (def.armTime && inst.armT>0 && player.health < player.maxHealth){
       inst.armT -= dt;
       if (inst.armT<=0){
         // arm complete — get pulled into the flower instead of vanishing instantly
         inst.eating = true; inst.eatT = 0; inst.eatFromX = inst.x; inst.eatFromY = inst.y;
-        inst.pendingHeal = pscale(def,'healBurst',rarity);
+        inst.pendingHeal = pscale(def,'healBurst',inst.petal,tier);
         continue;
       }
     }
@@ -653,29 +1088,36 @@ function updateInstances(dt){
   }
 }
 function shouldAggroOnHit(m){
-  // Ladybugs are normally passive, but rare+ ones fight back once provoked.
-  if (m.type === 'ladybug') return RARITIES.indexOf(m.rarity) >= RARITIES.indexOf('rare');
-  // Common/unusual bees are all bark, no bite — only rare+ bees retaliate.
-  if (m.type === 'bee') return m.rarity !== 'common' && m.rarity !== 'unusual';
+  // Ladybugs are normally passive, but level 30+ ones fight back once provoked.
+  if (m.type === 'ladybug') return m.level >= 30;
+  // Low-level bees are all bark, no bite — only level 15+ bees retaliate.
+  if (m.type === 'bee') return m.level >= 15;
   const beh = MOB_DEFS[m.type].behavior;
   return beh === 'neutral' || beh === 'neutral-swerve';
 }
 function dealPetalDamage(inst, def, m, dx, dy, d){
-  const dmg = pscale(def,'damage',inst.rarity);
+  const dmg = pscale(def,'damage',inst.petal,inst.tier);
   if (dmg>0){
     damageMob(m, dmg, dx, dy, d, def.push||0);
-    if (def.slowMult){ m.slowMult=def.slowMult; m.slowT=Math.max(m.slowT, def.slowDur||1.5); }
+    if (def.slowMult){ m.slowMult=scaledSlowMult(def,inst.petal,inst.tier); m.slowT=Math.max(m.slowT, scaledSlowDur(def,inst.petal,inst.tier)); }
     if (shouldAggroOnHit(m)) m.aggro = true;
   }
   inst.health -= m.petalDmg;
   if (inst.health<=0) breakInstance(inst, def);
 }
+const PICKUP_MAGNET_RANGE = 40; // barely wider than the collect radius — you have to walk into a petal, not vacuum it from afar
 function updatePickups(dt){
   for (let i=pickups.length-1;i>=0;i--){
     const p = pickups[i];
-    p.vx*=Math.exp(-6*dt); p.vy*=Math.exp(-6*dt);
-    const dx=player.x-p.x, dy=player.y-p.y, d=len(dx,dy);
-    if (d<110){ const pull=260*(1-d/110); p.vx+=dx/(d||1)*pull*dt*10; p.vy+=dy/(d||1)*pull*dt*10; }
+    const dx=player.x-p.x, dy=player.y-p.y, d=len(dx,dy)||1;
+    if (d<PICKUP_MAGNET_RANGE){
+      // snap straight to a fast, always-outrunning speed instead of slowly accelerating —
+      // the magnet should feel instant, not a slow drift the player can jog away from
+      const pullSpeed = 300 + 900*(1 - d/PICKUP_MAGNET_RANGE);
+      p.vx = dx/d*pullSpeed; p.vy = dy/d*pullSpeed;
+    } else {
+      p.vx*=Math.exp(-6*dt); p.vy*=Math.exp(-6*dt);
+    }
     p.x+=p.vx*dt; p.y+=p.vy*dt;
     if (d < player.r+10){ collectPickup(p); pickups.splice(i,1); }
   }
@@ -685,10 +1127,10 @@ function updatePickups(dt){
    MAIN UPDATE
    ══════════════════════════════════════════ */
 let dead = false;
-let paused = false;
+const DEATH_ANIM_DUR = 0.28; // mobs pop and fade out over this long instead of vanishing instantly
 
 function update(dt){
-  if (dead || paused) return;
+  if (dead || !authed) return;
 
   let locked = false;
   if (player.kbLock > 0){ player.kbLock -= dt; locked = true; }
@@ -721,21 +1163,28 @@ function update(dt){
   if (mouseDownL) targetR = ORBIT.expandR * (1 + (player.auraRange||0));
   else if (mouseDownR || keys[' ']) targetR = ORBIT.contractR;
   player.orbitR += (targetR - player.orbitR) * clamp(10*dt, 0, 1);
+
+  // defensive petals (e.g. Rose) never push out to attack range — they still pull in on contract
+  const targetRDef = (mouseDownR || keys[' ']) ? ORBIT.contractR : ORBIT.restR;
+  player.orbitRDef += (targetRDef - player.orbitRDef) * clamp(10*dt, 0, 1);
   player.petalAngle += (ORBIT.rotSpeed + (player.auraRot||0)) * dt;
 
   updateInstances(dt);
 
-  for (const m of mobs) updateMob(m, dt);
+  for (const m of mobs){ if (!m.dying) updateMob(m, dt); }
 
   for (let i=0;i<mobs.length;i++)
-    for (let j=i+1;j<mobs.length;j++)
+    for (let j=i+1;j<mobs.length;j++){
+      if (mobs[i].dying || mobs[j].dying) continue;
       resolveOverlap(mobs[i], mobs[j], mobs[i].mass, mobs[j].mass);
+    }
 
   for (const inst of player.instances){
     if (inst.broken || inst.eating) continue;
     const def = PETAL_DEFS[inst.petal];
     const rad = inst.parts>1 ? 6 : 9;
     for (const m of mobs){
+      if (m.dying) continue;
       const dx=m.x-inst.x, dy=m.y-inst.y, d=len(dx,dy);
       if (d < m.r+rad){
         if (inst.flying){ dealPetalDamage(inst, def, m, dx,dy,d); break; }
@@ -745,6 +1194,7 @@ function update(dt){
   }
 
   for (const m of mobs){
+    if (m.dying) continue;
     const dx=player.x-m.x, dy=player.y-m.y;
     const d=len(dx,dy), min=m.r+player.r;
     if (d < min){
@@ -764,7 +1214,26 @@ function update(dt){
   }
 
   for (let i=mobs.length-1;i>=0;i--){
-    if (mobs[i].health<=0){ rollMobDrops(mobs[i]); mobs.splice(i,1); }
+    const m = mobs[i];
+    if (m.dying){
+      m.dieT += dt;
+      if (m.dieT >= DEATH_ANIM_DUR) mobs.splice(i,1);
+      continue;
+    }
+    // anti-cheese: luring a mob more than one zone away from where it spawned despawns it
+    // instantly with no drops or XP, instead of letting it be dragged into an easier zone to farm
+    if (Math.abs(zoneAt(m.x).idx - m.spawnZoneIdx) > 1){
+      mobs.splice(i,1);
+      continue;
+    }
+    if (m.health<=0){
+      const wasNew = !killedMobs.has(m.type+'|'+m.level);
+      killedMobs.add(m.type+'|'+m.level);
+      rollMobDrops(m);
+      grantXp(xpForKill(m.type, m.level));
+      m.dying = true; m.dieT = 0;
+      if (wasNew && openPanelName==='mob') renderPanel();
+    }
   }
   updateSpawns(dt);
   updatePickups(dt);
@@ -789,14 +1258,9 @@ function draw(){
   ctx.fillStyle = '#1e8a42'; ctx.fillRect(0,0,W,H);
   ctx.save(); ctx.translate(-cam.x, -cam.y);
 
-  const zoneGrad = ctx.createLinearGradient(0,0,ARENA.w,0);
-  zoneGrad.addColorStop(0,     ZONES[0].bg);
-  zoneGrad.addColorStop(0.31,  ZONES[0].bg);
-  zoneGrad.addColorStop(0.36,  ZONES[1].bg);
-  zoneGrad.addColorStop(0.64,  ZONES[1].bg);
-  zoneGrad.addColorStop(0.69,  ZONES[2].bg);
-  zoneGrad.addColorStop(1,     ZONES[2].bg);
-  ctx.fillStyle = zoneGrad; ctx.fillRect(0,0,ARENA.w,ARENA.h);
+  // hard cut at each zone boundary — no gradient blend between zones
+  const zoneW = ARENA.w/ZONES.length;
+  ZONES.forEach((z,i)=>{ ctx.fillStyle = z.bg; ctx.fillRect(zoneW*i, 0, zoneW, ARENA.h); });
 
   ctx.strokeStyle = 'rgba(0,0,0,0.06)'; ctx.lineWidth = 2;
   const grid = 60;
@@ -806,14 +1270,17 @@ function draw(){
   ctx.strokeRect(0,0,ARENA.w,ARENA.h);
 
   ctx.font = '900 34px "Segoe UI", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  [0, ARENA.w/3, ARENA.w*2/3].forEach((x0,i)=>{
-    const cx = x0 + ARENA.w/3/2;
-    ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.strokeText(ZONES[i].name.toUpperCase()+' ZONE', cx, 16);
-    ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.fillText(ZONES[i].name.toUpperCase()+' ZONE', cx, 16);
+  ZONES.forEach((z,i)=>{
+    const cx = zoneW*i + zoneW/2;
+    ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.strokeText(z.name.toUpperCase()+' ZONE', cx, 16);
+    ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.fillText(z.name.toUpperCase()+' ZONE', cx, 16);
   });
 
   drawPickups();
-  for (const m of mobs){ drawMob(m); drawRarity(m); mobHealthBar(m); }
+  for (const m of mobs){
+    if (m.dying){ drawDyingMob(m); continue; }
+    drawMob(m); drawLevelLabel(m); mobHealthBar(m);
+  }
   if (!dead){
     for (const inst of player.instances) drawInstance(inst);
     drawPlayer();
@@ -821,19 +1288,39 @@ function draw(){
 
   ctx.restore();
   renderLoadoutBar();
-  const nU=mobs.filter(m=>m.rarity==='unusual').length, nR=mobs.filter(m=>m.rarity==='rare').length,
-        nE=mobs.filter(m=>m.rarity==='epic').length, nL=mobs.filter(m=>['legendary','mythic'].includes(m.rarity)).length;
+  updateLevelHud();
+  const avgLevel = mobs.length ? Math.round(mobs.reduce((s,m)=>s+m.level,0)/mobs.length) : 0;
   document.getElementById('stats').textContent =
-    `HP ${Math.ceil(player.health)}/${player.maxHealth} · ${zoneAt(player.x).name} Zone · mobs ${mobs.length} (${nU}u ${nR}r ${nE}e ${nL}l+) · petals ${player.instances.filter(p=>!p.broken).length}/${player.instances.length}`;
+    `Lv ${playerLevel} (${playerXp}/${xpToNext(playerLevel)} XP) · HP ${Math.ceil(player.health)}/${formatNum(player.maxHealth)} · ${zoneAt(player.x).name} Zone · mobs ${mobs.length} (avg lvl ${avgLevel}) · petals ${player.instances.filter(p=>!p.broken).length}/${player.instances.length} · slots ${loadouts[activeLoadout].length}/${MAX_LOADOUT_SIZE}`;
 }
 
 function drawPickups(){
   const t = performance.now()/1000;
   for (const p of pickups){
-    const bob = Math.sin(t*3 + p.born*7)*3;
-    drawPetalIcon(ctx, p.petal, p.x, p.y+bob, 8);
-    ctx.beginPath(); ctx.arc(p.x, p.y+bob, 9.5, 0, TAU);
-    ctx.lineWidth=2; ctx.strokeStyle = RARITY_INFO[p.rarity].color; ctx.stroke();
+    const pulse = 1 + Math.sin(t*4 + p.born*7)*0.14;
+    const cx = p.x, cy = p.y;
+    // essence — a plain white blob, pulsing gently, sized by rarity instead of a colored
+    // capsule holding a petal icon (essence has no petal identity)
+    ctx.save();
+    ctx.translate(cx, cy); ctx.scale(pulse, pulse);
+    drawEssenceIcon(ctx, p.rarity, 0, 0, 9);
+    ctx.restore();
+
+    // stacked-count badge — same dark/gold "×N" look as the craft menu's batch badge,
+    // drawn outside the pulse transform so the text itself never gets squished
+    if (p.count>1){
+      ctx.save();
+      ctx.translate(cx+11, cy+11);
+      ctx.font = '900 10px "Segoe UI", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const label = '×'+p.count;
+      const w = ctx.measureText(label).width + 8;
+      roundRect(-w/2, -7, w, 14, 6);
+      ctx.fillStyle = '#1c2410'; ctx.fill();
+      ctx.lineWidth = 1.6; ctx.strokeStyle = '#7d7328'; ctx.stroke();
+      ctx.fillStyle = '#ffe27a';
+      ctx.fillText(label, 0, 0.5);
+      ctx.restore();
+    }
   }
 }
 
@@ -843,8 +1330,7 @@ function drawInstance(inst){
   if (inst.broken) return; // reloading — shown on the hotbar slot instead, nothing drawn in-world
   if (inst.flying){
     ctx.save(); ctx.translate(inst.x, inst.y); ctx.rotate(Math.atan2(inst.vy,inst.vx));
-    drawPetalIcon(ctx, inst.petal, 0, 0, rad);
-    ctx.beginPath(); ctx.arc(0,0,rad+1.5,0,TAU); ctx.lineWidth=1.6; ctx.strokeStyle=RARITY_INFO[inst.rarity].color; ctx.stroke();
+    drawPetalIcon(ctx, inst.petal, 0, 0, rad, inst.tier);
     ctx.restore();
     return;
   }
@@ -853,9 +1339,7 @@ function drawInstance(inst){
   if (inst.eating) scale = 1 - easeInCubic(clamp(inst.eatT,0,1));
   else if (inst.spawnT < 1) scale = easeOutCubic(clamp(inst.spawnT,0,1));
   rad *= Math.max(0.08, scale);
-  drawPetalIcon(ctx, inst.petal, inst.x, inst.y, rad);
-  ctx.beginPath(); ctx.arc(inst.x, inst.y, rad+1.5, 0, TAU);
-  ctx.lineWidth = 1.6; ctx.strokeStyle = RARITY_INFO[inst.rarity].color; ctx.stroke();
+  drawPetalIcon(ctx, inst.petal, inst.x, inst.y, rad, inst.tier);
 }
 
 function drawPlayer(){
@@ -881,7 +1365,18 @@ function drawMob(m){
     case 'ant': return drawAnt(m);
     case 'bee': return drawBee(m);
     case 'spider': return drawSpider(m);
+    case 'beetle': return drawBeetle(m);
   }
+}
+// death burst: the corpse quickly puffs up and fades out instead of just vanishing
+function drawDyingMob(m){
+  const t = clamp(m.dieT / DEATH_ANIM_DUR, 0, 1);
+  const scale = 1 + easeOutCubic(t)*0.4;
+  ctx.save();
+  ctx.globalAlpha = 1 - t;
+  ctx.translate(m.x, m.y); ctx.scale(scale, scale); ctx.translate(-m.x, -m.y);
+  drawMob(m);
+  ctx.restore();
 }
 function drawLadybug(m){
   ctx.save(); ctx.translate(m.x, m.y);
@@ -960,15 +1455,30 @@ function drawSpider(m){
   [[0.5,-0.15],[0.5,0.15],[0.36,-0.3],[0.36,0.3]].forEach(([ex,ey])=>{ ctx.beginPath(); ctx.arc(ex*m.r,ey*m.r,m.r*0.1,0,TAU); ctx.fill(); });
   ctx.restore();
 }
-function drawRarity(m){
+function drawBeetle(m){
+  ctx.save(); ctx.translate(m.x,m.y); ctx.rotate(Math.atan2(m.vy,m.vx)||0);
+  ctx.fillStyle = m.hurtFlash>0 ? '#9184d6' : m.color;
+  ctx.strokeStyle = '#160f2e'; ctx.lineWidth = 2.4;
+  ctx.beginPath(); ctx.ellipse(0,0,m.r,m.r*0.72,0,0,TAU); ctx.fill(); ctx.stroke();
+  ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 1.6;
+  ctx.beginPath(); ctx.moveTo(-m.r*0.8,0); ctx.lineTo(m.r*0.55,0); ctx.stroke();
+  ctx.fillStyle = '#160f2e';
+  ctx.beginPath(); ctx.arc(m.r*0.75,0,m.r*0.3,0,TAU); ctx.fill();
+  ctx.strokeStyle = '#160f2e'; ctx.lineWidth = 1.8;
+  ctx.beginPath(); ctx.moveTo(m.r*0.92,-m.r*0.14); ctx.lineTo(m.r*1.25,-m.r*0.34); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(m.r*0.92, m.r*0.14); ctx.lineTo(m.r*1.25, m.r*0.34); ctx.stroke();
+  ctx.restore();
+}
+function drawLevelLabel(m){
   ctx.save();
   ctx.font = '700 11px "Segoe UI", sans-serif';
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
   const y = m.y + m.r + 5;
+  const label = 'Lv ' + m.level;
   ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,0.55)';
-  ctx.strokeText(m.rarityName, m.x, y);
-  ctx.fillStyle = m.rarityColor;
-  ctx.fillText(m.rarityName, m.x, y);
+  ctx.strokeText(label, m.x, y);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(label, m.x, y);
   ctx.restore();
 }
 function mobHealthBar(m){
@@ -995,7 +1505,48 @@ function shadeColor(hex, pct){
   const r = clamp((n>>16)+amt,0,255), g = clamp(((n>>8)&255)+amt,0,255), b = clamp((n&255)+amt,0,255);
   return `rgb(${r},${g},${b})`;
 }
-function drawPetalIcon(ctx, id, cx, cy, r){
+// small white blobs that grow with rarity — a shared radius multiplier used both for
+// ground pickups (world-space) and DOM icon boxes, so the two contexts stay visually consistent
+const ESSENCE_RARITY_SCALE = { common:0.7, unusual:0.8, rare:0.9, epic:1.0, legendary:1.15, mythic:1.35 };
+function drawEssenceIcon(ctx, rarity, cx, cy, baseR){
+  const r = baseR * (ESSENCE_RARITY_SCALE[rarity]||1);
+  const rc = RARITY_INFO[rarity].color;
+  ctx.save(); ctx.translate(cx,cy);
+  ctx.beginPath(); ctx.arc(0,0,r,0,TAU);
+  ctx.fillStyle = '#fdfdfd'; ctx.fill();
+  ctx.lineWidth = Math.max(1.4, r*0.22); ctx.strokeStyle = rc; ctx.stroke();
+  ctx.restore();
+}
+// tier 2+ petals grow a visible white/gold aura (and tier 6 gains 4 slowly-spinning sparkles),
+// so a maxed-out petal reads as visibly stronger even though the container color is fixed by rarity
+function drawTierAura(ctx, r, tier){
+  if (!tier || tier<=1) return;
+  const t = clamp((tier-1)/5, 0, 1); // 0 at tier1 .. 1 at tier6
+  ctx.save();
+  ctx.globalAlpha = 0.55 + t*0.45;
+  ctx.lineWidth = Math.max(1, r*0.1 + r*0.18*t);
+  ctx.strokeStyle = tier>=6 ? '#fff9c4' : '#ffffff';
+  ctx.shadowColor = tier>=5 ? '#ffe27a' : '#ffffff';
+  ctx.shadowBlur = 2 + t*9;
+  ctx.beginPath(); ctx.arc(0,0, r*(1.14+t*0.12), 0, TAU); ctx.stroke();
+  ctx.restore();
+  if (tier>=6){
+    const spin = (performance.now()/1000) * 0.6;
+    ctx.save(); ctx.rotate(spin);
+    ctx.fillStyle = '#fff9c4';
+    for (let i=0;i<4;i++){
+      const a = i/4*TAU, sx = Math.cos(a)*r*1.35, sy = Math.sin(a)*r*1.35, s = r*0.2;
+      ctx.save(); ctx.translate(sx,sy);
+      ctx.beginPath();
+      ctx.moveTo(0,-s); ctx.lineTo(s*0.25,-s*0.25); ctx.lineTo(s,0); ctx.lineTo(s*0.25,s*0.25);
+      ctx.lineTo(0,s); ctx.lineTo(-s*0.25,s*0.25); ctx.lineTo(-s,0); ctx.lineTo(-s*0.25,-s*0.25);
+      ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+}
+function drawPetalIcon(ctx, id, cx, cy, r, tier){
   const def = PETAL_DEFS[id];
   const shape = def.shape || 'circle';
   const col = def.color;
@@ -1017,8 +1568,10 @@ function drawPetalIcon(ctx, id, cx, cy, r){
       ctx.beginPath(); ctx.moveTo(0,-r*0.65); ctx.lineTo(0,r*0.65);
       ctx.lineWidth=Math.max(1,r*0.11); ctx.strokeStyle=shadeColor(col,-42); ctx.stroke();
       break;
-    case 'spike':
-      ctx.beginPath(); ctx.moveTo(0,-r); ctx.lineTo(r*0.58,r*0.82); ctx.lineTo(-r*0.58,r*0.82); ctx.closePath();
+    case 'triangleSide':
+      // equilateral triangle pointing sideways (+x), like a stinger aimed forward
+      ctx.beginPath();
+      ctx.moveTo(r, 0); ctx.lineTo(-r*0.5, r*0.866); ctx.lineTo(-r*0.5, -r*0.866); ctx.closePath();
       ctx.fill(); ctx.stroke();
       break;
     case 'drop':
@@ -1029,10 +1582,6 @@ function drawPetalIcon(ctx, id, cx, cy, r){
       ctx.quadraticCurveTo(-r*0.35,r, -r*0.65,r*0.35);
       ctx.quadraticCurveTo(-r*0.75,-r*0.3, 0,-r);
       ctx.closePath(); ctx.fill(); ctx.stroke();
-      break;
-    case 'chevron':
-      ctx.lineWidth=Math.max(1.8,r*0.32); ctx.strokeStyle=col; ctx.lineCap='round'; ctx.lineJoin='round';
-      ctx.beginPath(); ctx.moveTo(-r*0.55,-r*0.75); ctx.lineTo(r*0.55,0); ctx.lineTo(-r*0.55,r*0.75); ctx.stroke();
       break;
     case 'web':
       ctx.lineWidth=Math.max(1.2,r*0.14); ctx.strokeStyle=shadeColor(col,-15);
@@ -1064,8 +1613,9 @@ function drawPetalIcon(ctx, id, cx, cy, r){
       ctx.closePath(); ctx.fill(); ctx.stroke();
       break;
     case 'rock': {
-      const n=6; ctx.beginPath();
-      for(let i=0;i<=n;i++){ const a=(i/n)*TAU; const rr=r*(0.8+0.2*Math.sin(i*2.3+1)); const px=Math.cos(a)*rr, py=Math.sin(a)*rr;
+      // regular pentagon
+      const n=5; ctx.beginPath();
+      for(let i=0;i<=n;i++){ const a=-Math.PI/2 + i*(TAU/n); const px=Math.cos(a)*r, py=Math.sin(a)*r;
         i===0?ctx.moveTo(px,py):ctx.lineTo(px,py); }
       ctx.closePath(); ctx.fill(); ctx.stroke();
       break;
@@ -1085,6 +1635,7 @@ function drawPetalIcon(ctx, id, cx, cy, r){
     default:
       ctx.beginPath(); ctx.arc(0,0,r,0,TAU); ctx.fill(); ctx.stroke();
   }
+  drawTierAura(ctx, r, tier);
   ctx.restore();
 }
 function makeIconCanvas(id, size){
@@ -1105,6 +1656,7 @@ function drawMobIcon(mobKey, targetCtx, cx, cy, r){
     case 'ant': drawAnt(fake); break;
     case 'bee': drawBee(fake); break;
     case 'spider': drawSpider(fake); break;
+    case 'beetle': drawBeetle(fake); break;
   }
   ctx = saved;
 }
@@ -1112,32 +1664,54 @@ function drawMobIcon(mobKey, targetCtx, cx, cy, r){
 const loadoutIconCache = {};
 function renderLoadoutBar(){
   const bar = document.getElementById('loadoutBar');
-  if (bar.children.length !== loadout.length) bar.innerHTML = loadout.map(()=>`
-    <div class="lbslot"><canvas class="lbicon" width="30" height="30"></canvas><div class="lbcover"></div><div class="lbname"></div></div>
-  `).join('');
-  loadout.forEach((slot,i)=>{
-    const el = bar.children[i];
-    const def = PETAL_DEFS[slot.petal];
-    const parts = def.parts||1;
-    // slot fill = the least-ready part: reload progress while broken, current HP fraction while alive
-    let readiness = 1;
-    const maxH = pscale(def,'health',slot.rarity);
-    for (let p=0;p<parts;p++){
-      const inst = player.instances.find(x=>x.slot===i && x.partIndex===p);
-      if (!inst) continue;
-      const r = inst.broken ? clamp(1 - inst.regenT/def.reload, 0, 1) : (maxH>0 ? clamp(inst.health/maxH, 0, 1) : 1);
-      readiness = Math.min(readiness, r);
-    }
-    const rc = RARITY_INFO[slot.rarity].color;
-    el.style.setProperty('--rc', rc);
-    el.querySelector('.lbname').textContent = def.name;
-    el.querySelector('.lbcover').style.height = ((1-readiness)*100)+'%';
-    const cacheKey = slot.petal;
-    if (loadoutIconCache[cacheKey+'@'+i] !== cacheKey){
-      const cv = el.querySelector('.lbicon'), c = cv.getContext('2d');
-      c.clearRect(0,0,30,30); drawPetalIcon(c, slot.petal, 15, 15, 11);
-      loadoutIconCache[cacheKey+'@'+i] = cacheKey;
-    }
+  if (bar.dataset.built !== String(loadouts[0].length)){
+    bar.innerHTML = [0,1].map(li => `
+      <div class="lbrow" data-li="${li}">
+        ${loadouts[li].map((_,i)=>`
+          <div class="lbslot" draggable="true" data-li="${li}" data-i="${i}" onclick="quickSwapSlot(${i})"
+            ondragstart="dragSlotStart(event,${li},${i})"
+            ondragover="allowDrop(event)" ondragleave="dragLeaveSlot(event)" ondrop="dropOnSlot(event,${li},${i})">
+            <canvas class="lbicon" width="30" height="30"></canvas><div class="lbcover"></div><div class="lbname"></div><div class="lbtier"></div>
+          </div>`).join('')}
+      </div>`).join('');
+    bar.dataset.built = String(loadouts[0].length);
+  }
+  [0,1].forEach(li=>{
+    const row = bar.children[li];
+    row.classList.toggle('active', activeLoadout===li);
+    loadouts[li].forEach((slot,i)=>{
+      const el = row.children[i];
+      const def = PETAL_DEFS[slot.petal];
+      const parts = def.parts||1;
+      // slot fill = the least-ready part: reload progress while broken, current HP fraction while alive
+      // (only meaningful for the currently-active loadout, since only it has live instances)
+      let readiness = 1;
+      if (li===activeLoadout){
+        const maxH = pscale(def,'health',slot.petal,slot.tier);
+        for (let p=0;p<parts;p++){
+          const inst = player.instances.find(x=>x.slot===i && x.partIndex===p);
+          if (!inst) continue;
+          const r = inst.broken ? clamp(1 - inst.regenT/def.reload, 0, 1) : (maxH===Infinity ? 1 : maxH>0 ? clamp(inst.health/maxH, 0, 1) : 1);
+          readiness = Math.min(readiness, r);
+        }
+      }
+      const rc = RARITY_INFO[PETAL_RARITY[slot.petal]].color;
+      el.style.setProperty('--rc', rc);
+      const lbnameEl = el.querySelector('.lbname');
+      lbnameEl.textContent = def.name;
+      lbnameEl.classList.toggle('long', def.name.length > 7);
+      el.querySelector('.lbcover').style.height = ((1-readiness)*100)+'%';
+      el.querySelector('.lbtier').textContent = toRoman(slot.tier);
+      // tier 6's aura includes a rotating sparkle, so its icon can't be cache-skipped like
+      // the others or it'd freeze mid-spin — always redraw at tier 6
+      const cacheKey = slot.petal+'@'+slot.tier;
+      const ck = 'li'+li+'@'+i;
+      if (loadoutIconCache[ck] !== cacheKey || slot.tier>=6){
+        const cv = el.querySelector('.lbicon'), c = cv.getContext('2d');
+        c.clearRect(0,0,30,30); drawPetalIcon(c, slot.petal, 15, 15, 11, slot.tier);
+        loadoutIconCache[ck] = cacheKey;
+      }
+    });
   });
 }
 
@@ -1145,40 +1719,69 @@ function renderLoadoutBar(){
    UI PANELS
    ══════════════════════════════════════════ */
 let openPanelName = null;
-let invStackMode = false;
+let invStackMode = true; // stacked by default — the "Stack" checkbox is how you unstack
 let invSearch = '';
 let dragData = null;
+let craftSelection = null; // {petal, tier} or null
+let craftBulk = false;     // shift-click: keep re-attempting with whatever's left until <CRAFT_COST remains
+let craftPhase = 'idle';   // 'idle' | 'spinning' | 'result'
+let craftResult = null;    // set once the spin resolves: {success, petal, tier, nextTier, destroyedSlots, successCount, failCount, batches, totalLost}
+let forgeSelection = null; // petal id or null — which petal's recipe is being viewed
+let forgeBulk = false;     // shift-click: forge every batch your essence affords at once
+let forgePhase = 'idle';   // 'idle' | 'spinning' | 'result'
+let forgeResult = null;    // set once the spin resolves: {petal, tier, count}
+
+/* ── Crafting — combine CRAFT_COST of the same petal+tier for a chance at the next tier up ── */
+const CRAFT_COST = 5;
+const CRAFT_SPIN_DUR = 2.2;   // seconds the pentagon spins/pulses while "attempting"
+const CRAFT_RESULT_HOLD = 1.3; // seconds the resolved state is shown before returning to idle
+const CRAFT_CHANCE = { 1:50, 2:25, 3:10, 4:5, 5:2 }; // keyed by current tier; tier 6 has no next tier
 
 function togglePanel(name){ openPanelName===name ? closePanel() : openPanel(name); }
 function openPanel(name){
-  openPanelName = name; paused = true; selectedSlot = null;
+  openPanelName = name; craftSelection = null; craftBulk = false; craftPhase = 'idle'; craftResult = null;
+  forgeSelection = null; forgeBulk = false; forgePhase = 'idle'; forgeResult = null;
   document.getElementById('panelBackdrop').classList.add('show');
   renderPanel();
 }
 function closePanel(){
-  openPanelName = null; paused = false;
+  openPanelName = null;
   document.getElementById('panelBackdrop').classList.remove('show');
   hideTip();
 }
 function renderPanel(){
   const root = document.getElementById('panelRoot');
   hideTip();
-  root.classList.remove('gallery','inventory');
+  // re-rendering replaces the whole panel-body, which would otherwise reset its scroll
+  // position back to the top every time — preserve it across the rebuild
+  const oldBody = root.querySelector('.panel-body');
+  const scrollTop = oldBody ? oldBody.scrollTop : 0;
+  root.classList.remove('gallery','inventory','wide','craft','forge');
   if (openPanelName==='inventory'){ root.classList.add('inventory'); root.innerHTML = renderInventoryPanel(); }
-  else if (openPanelName==='mob'){ root.classList.add('gallery'); root.innerHTML = renderMobPanel(); }
+  else if (openPanelName==='mob'){ root.classList.add('gallery','wide'); root.innerHTML = renderMobPanel(); }
   else if (openPanelName==='petal'){ root.classList.add('gallery'); root.innerHTML = renderPetalPanel(); }
+  else if (openPanelName==='craft'){ root.classList.add('gallery','craft'); root.innerHTML = renderCraftPanel(); }
+  else if (openPanelName==='forge'){ root.classList.add('gallery','forge'); root.innerHTML = renderForgePanel(); }
+  else if (openPanelName==='essence'){ root.classList.add('inventory'); root.innerHTML = renderEssencePanel(); }
   paintIcons(root);
+  const newBody = root.querySelector('.panel-body');
+  if (newBody && scrollTop) newBody.scrollTop = scrollTop;
 }
 function paintIcons(root){
   root.querySelectorAll('canvas.picn[data-petal]').forEach(cv=>{
     const ctx2 = cv.getContext('2d'), s = cv.width;
     ctx2.clearRect(0,0,s,s);
-    drawPetalIcon(ctx2, cv.dataset.petal, s/2, s/2, s*0.4);
+    drawPetalIcon(ctx2, cv.dataset.petal, s/2, s/2, s*0.4, cv.dataset.tier ? +cv.dataset.tier : undefined);
   });
   root.querySelectorAll('canvas.gicon[data-mob]').forEach(cv=>{
     const ctx2 = cv.getContext('2d'), s = cv.width;
     ctx2.clearRect(0,0,s,s);
     drawMobIcon(cv.dataset.mob, ctx2, s/2, s/2, s*0.32);
+  });
+  root.querySelectorAll('canvas.eicon[data-rarity]').forEach(cv=>{
+    const ctx2 = cv.getContext('2d'), s = cv.width;
+    ctx2.clearRect(0,0,s,s);
+    drawEssenceIcon(ctx2, cv.dataset.rarity, s/2, s/2, s*0.28);
   });
 }
 
@@ -1206,50 +1809,67 @@ document.addEventListener('click', e => {
 /* ── Inventory ── */
 function setInvStack(el){ invStackMode = el.checked; renderPanel(); }
 function setInvSearch(el){ invSearch = el.value.toLowerCase(); renderPanel(); }
-function dragPetalStart(e, petal, rarity){ dragData = {petal, rarity}; e.dataTransfer.effectAllowed = 'move'; }
+function dragPetalStart(e, petal, tier){ dragData = {type:'inv', petal, tier}; e.dataTransfer.effectAllowed = 'move'; }
+function dragSlotStart(e, li, i){ dragData = {type:'slot', li, i}; e.dataTransfer.effectAllowed = 'move'; }
 function allowDrop(e){ e.preventDefault(); e.currentTarget.classList.add('dragover'); }
 function dragLeaveSlot(e){ e.currentTarget.classList.remove('dragover'); }
-function dropOnSlot(e, i){
+function dropOnSlot(e, li, i){
   e.preventDefault(); e.currentTarget.classList.remove('dragover');
   if (!dragData) return;
-  const {petal, rarity} = dragData; dragData = null;
-  const k = invKey(petal, rarity);
-  if (!inventory[k] || inventory[k]<=0) return;
-  const old = loadout[i];
-  if (old.petal!=='basic'){ const ok=invKey(old.petal,old.rarity); inventory[ok]=(inventory[ok]||0)+1; }
-  inventory[k]--;
-  loadout[i] = { petal, rarity };
-  rebuildInstances();
-  renderPanel();
+  const container = e.currentTarget.closest('#loadoutBar, .panel');
+  if (dragData.type==='inv'){
+    const {petal, tier} = dragData;
+    dragData = null;
+    const k = invKey(petal, tier);
+    if (!inventory[k] || inventory[k]<=0) return;
+    const old = loadouts[li][i];
+    if (old.petal!=='basic'){ const ok=invKey(old.petal,old.tier); inventory[ok]=(inventory[ok]||0)+1; }
+    inventory[k]--;
+    loadouts[li][i] = { petal, tier };
+    if (li===activeLoadout) rebuildInstances();
+    renderPanel();
+  } else if (dragData.type==='slot'){
+    const {li:fli, i:fi} = dragData;
+    dragData = null;
+    if (fli===li && fi===i) return;
+    // the real slots keep showing their old contents until the flying icons actually arrive —
+    // swapping the data (and thus the DOM) immediately made them look like they'd already
+    // teleported before the animation caught up
+    const rectFrom = slotRect(container, fli, fi), rectTo = slotRect(container, li, i);
+    const a = loadouts[li][i], b = loadouts[fli][fi];
+    flySwapIcon(rectFrom, rectTo, b.petal, b.tier);
+    flySwapIcon(rectTo, rectFrom, a.petal, a.tier);
+    setTimeout(()=>{
+      loadouts[li][i] = b;
+      loadouts[fli][fi] = a;
+      if (li===activeLoadout || fli===activeLoadout) rebuildInstances();
+      renderPanel();
+    }, FLY_SWAP_DELAY);
+  } else {
+    dragData = null;
+  }
 }
 function renderInventoryPanel(){
-  const slots = loadout.map((slot,i)=>{
-    const def = PETAL_DEFS[slot.petal];
-    return `<div class="lslot ${selectedSlot===i?'sel':''}" onclick="selectSlot(${i})"
-      ondragover="allowDrop(event)" ondragleave="dragLeaveSlot(event)" ondrop="dropOnSlot(event,${i})">
-      <canvas class="picn" data-petal="${slot.petal}" style="--rc:${RARITY_INFO[slot.rarity].color}" width="40" height="40"></canvas>
-      <div class="pname">${def.name}</div>
-    </div>`;
-  }).join('');
-
   const matches = petal => PETAL_DEFS[petal].name.toLowerCase().includes(invSearch);
   let body;
   if (invStackMode){
     const merged = {};
     Object.keys(inventory).forEach(k=>{
       if (inventory[k]<=0) return;
-      const [petal,rarity] = k.split('|');
+      const [petal,tierStr] = k.split('|'); const tier = +tierStr;
       if (!matches(petal)) return;
-      if (!merged[petal]) merged[petal] = { count:0, bestRarity:rarity };
+      if (!merged[petal]) merged[petal] = { count:0, bestTier:tier };
       merged[petal].count += inventory[k];
-      if (RARITIES.indexOf(rarity) > RARITIES.indexOf(merged[petal].bestRarity)) merged[petal].bestRarity = rarity;
+      if (tier > merged[petal].bestTier) merged[petal].bestTier = tier;
     });
-    const cards = Object.keys(merged).sort().map(petal=>{
-      const {count,bestRarity} = merged[petal], def = PETAL_DEFS[petal];
-      return `<div class="istack" draggable="true" ondragstart="dragPetalStart(event,'${petal}','${bestRarity}')" style="--rc:${RARITY_INFO[bestRarity].color}" onclick="equipFromInventory('${petal}','${bestRarity}')">
+    const cards = Object.keys(merged).sort(byRarityThenName).map(petal=>{
+      const {count,bestTier} = merged[petal], def = PETAL_DEFS[petal];
+      const rc = RARITY_INFO[PETAL_RARITY[petal]].color;
+      return `<div class="istack" draggable="true" ondragstart="dragPetalStart(event,'${petal}',${bestTier})" style="--rc:${rc}">
         <div class="pcount">x${count}</div>
-        <canvas class="picn" data-petal="${petal}" width="40" height="40"></canvas>
-        <div class="pname">${def.name}</div>
+        <div class="ptier">${toRoman(bestTier)}</div>
+        <canvas class="picn" data-petal="${petal}" data-tier="${bestTier}" width="40" height="40"></canvas>
+        <div class="pname ${longNameCls(def.name)}">${def.name}</div>
       </div>`;
     }).join('');
     body = `<div class="inv-grid">${cards || '<div class="inv-empty">No petals match.</div>'}</div>`;
@@ -1257,19 +1877,24 @@ function renderInventoryPanel(){
     const sections = [...RARITIES].reverse().map(rarity=>{
       const keys = Object.keys(inventory).filter(k=>{
         if (inventory[k]<=0) return false;
-        const [petal,r] = k.split('|');
-        return r===rarity && matches(petal);
-      }).sort();
+        const [petal] = k.split('|');
+        return PETAL_RARITY[petal]===rarity && matches(petal);
+      }).sort((a,b)=>{
+        const [pa,ta]=a.split('|'), [pb,tb]=b.split('|');
+        return pa===pb ? (+ta)-(+tb) : pa.localeCompare(pb);
+      });
       if (!keys.length) return '';
+      const rc = RARITY_INFO[rarity].color;
       const cards = keys.map(k=>{
-        const [petal,r] = k.split('|'); const def = PETAL_DEFS[petal];
-        return `<div class="istack" draggable="true" ondragstart="dragPetalStart(event,'${petal}','${r}')" style="--rc:${RARITY_INFO[r].color}" onclick="equipFromInventory('${petal}','${r}')">
+        const [petal,tierStr] = k.split('|'); const tier = +tierStr; const def = PETAL_DEFS[petal];
+        return `<div class="istack" draggable="true" ondragstart="dragPetalStart(event,'${petal}',${tier})" style="--rc:${rc}">
           <div class="pcount">x${inventory[k]}</div>
-          <canvas class="picn" data-petal="${petal}" width="40" height="40"></canvas>
-          <div class="pname">${def.name}</div>
+          <div class="ptier">${toRoman(tier)}</div>
+          <canvas class="picn" data-petal="${petal}" data-tier="${tier}" width="40" height="40"></canvas>
+          <div class="pname ${longNameCls(def.name)}">${def.name}</div>
         </div>`;
       }).join('');
-      return `<div class="inv-section-head" style="--rc:${RARITY_INFO[rarity].color}">${RARITY_INFO[rarity].name}</div><div class="inv-grid">${cards}</div>`;
+      return `<div class="inv-section-head" style="--rc:${rc}">${RARITY_INFO[rarity].name}</div><div class="inv-grid">${cards}</div>`;
     }).join('');
     body = sections || '<div class="inv-empty">No petals collected yet — go defeat some mobs!</div>';
   }
@@ -1282,103 +1907,520 @@ function renderInventoryPanel(){
         <label><input type="checkbox" ${invStackMode?'checked':''} onchange="setInvStack(this)"> Stack</label>
         <input class="inv-search" type="text" placeholder="Search petals..." value="${invSearch}" oninput="setInvSearch(this)">
       </div>
-      <div class="loadout-slots">${slots}</div>
       ${body}
     </div>`;
 }
 
-/* ── Mob Gallery — grid of mob types × rarity columns ── */
+/* ── Essence — generic, rarity-only currency spent at the Forge ── */
+function renderEssencePanel(){
+  const cards = RARITY_ORDER_DESC.map(rarity=>{
+    const cnt = essence[essenceKey(rarity)]||0;
+    const rc = RARITY_INFO[rarity].color;
+    return `<div class="istack" style="--rc:${rc}">
+      <div class="pcount">x${cnt}</div>
+      <canvas class="eicon" data-rarity="${rarity}" width="40" height="40"></canvas>
+      <div class="pname">${RARITY_INFO[rarity].name}</div>
+    </div>`;
+  }).join('');
+  return `
+    <div class="panel-head"><h2>Essence</h2><button class="x" onclick="closePanel()">✕</button></div>
+    <div class="panel-body">
+      <div class="inv-sub">Spend essence at the Forge (Y) to obtain a petal</div>
+      <div class="inv-grid">${cards}</div>
+    </div>`;
+}
+
+/* ── Mob Gallery — grid of mob types × level columns ── */
 function renderMobPanel(){
   const rows = Object.keys(MOB_DEFS).map(mobKey=>{
-    const cells = RARITIES.map(r=>`
-      <div class="gcell" style="--rc:${RARITY_INFO[r].color}" onclick="showMobTip(event,'${mobKey}','${r}')">
+    const cells = MOB_LEVELS.map(lvl=>{
+      if (!killedMobs.has(mobKey+'|'+lvl)) return `<div class="gcell locked">❓</div>`;
+      return `<div class="gcell" style="--rc:#8d8256" onclick="showMobTip(event,'${mobKey}',${lvl})">
         <canvas class="gicon" data-mob="${mobKey}" width="40" height="40"></canvas>
-      </div>`).join('');
-    return `<div class="grow">${cells}</div>`;
+      </div>`;
+    }).join('');
+    return `<div class="grow mobgrow">${cells}</div>`;
   }).join('');
   return `
     <div class="panel-head"><h2>Mob Gallery</h2><button class="x" onclick="closePanel()">✕</button></div>
     <div class="panel-body">${rows}</div>`;
 }
-function lockedCard(){ return `<div class="ratecard locked">🔒</div>`; }
-function petalRateCard(petalId, rarity, pct){
-  return `<div class="ratecard" style="--rc:${RARITY_INFO[rarity].color}">
-    <canvas class="picn" data-petal="${petalId}" width="30" height="30"></canvas>
-    <div class="rc-name">${PETAL_DEFS[petalId].name}</div>
-    <div class="rc-pct">${pct}%</div>
-  </div>`;
-}
-function mobRefCard(mobKey){
-  return `<div class="ratecard mobcard">
-    <canvas class="gicon" data-mob="${mobKey}" width="30" height="30"></canvas>
-    <div class="rc-name">${MOB_DEFS[mobKey].name}</div>
-  </div>`;
-}
-function showMobTip(e, mobKey, rarity){
-  e.stopPropagation();
-  const def = MOB_DEFS[mobKey], scale = MOB_SCALE[rarity];
-  const tiers = ['extra','base','subbase','abyssmal','hidden'].map(tier=>{
-    const table = DROP_TABLES[rarity] && DROP_TABLES[rarity][tier];
-    const poolEntry = def.drops.find(d=>d.tier===tier);
-    if (!poolEntry || !table) return '';
-    const masked = (tier==='abyssmal'||tier==='hidden') && !discovered.has(poolEntry.petal);
-    const cards = masked
-      ? table.map(()=>lockedCard()).join('')
-      : table.map(x=>petalRateCard(poolEntry.petal, x.r, x.p)).join('');
-    return `<div class="ratecard-row">${cards}</div>`;
+// has this petal been obtained at any tier? (only forging ever sets discoveredPetals now)
+function petalAnyDiscovered(petal){ return TIERS.some(t=>discoveredPetals.has(invKey(petal,t))); }
+// zone-jackpot rows only — the hidden jackpots (5%/1%/0.1%) are deliberately never shown here
+function essenceRateCard(rarity, pct, zoneNum, subTier){
+  const activeTiers = zoneJackpotTiers(rarity).filter(t => t.zone <= zoneNum);
+  const jackpotLines = activeTiers.slice().reverse().map(t=>{
+    const zonesPast = zoneNum - t.zone;
+    const chance = zonesPast===0 ? MULTICOPY_CHANCE_NEW[subTier-1] : MULTICOPY_CHANCE_RISEN[subTier-1];
+    return `<div class="rc-multi">×${t.mult}: ${chance}%</div>`;
   }).join('');
+  return `<div class="ratecard" style="--rc:${RARITY_INFO[rarity].color}">
+    <canvas class="eicon" data-rarity="${rarity}" width="30" height="30"></canvas>
+    <div class="rc-name">${RARITY_INFO[rarity].name} Essence</div>
+    <div class="rc-pct">${pct}%</div>
+    ${jackpotLines}
+  </div>`;
+}
+function showMobTip(e, mobKey, level){
+  e.stopPropagation();
+  const def = MOB_DEFS[mobKey], scale = mobLevelScale(level), table = DROP_RATE_TABLE[level] || {};
+  const zt = zoneAndSubTierForLevel(level) || {zoneNum:0, subTier:1};
+  const cards = def.drops.filter(rarity => (table[rarity]||0) > 0).map(rarity => essenceRateCard(rarity, table[rarity], zt.zoneNum, zt.subTier)).join('');
   const html = `
     <div class="tip-name">${def.name}</div>
-    <div class="tip-rar" style="color:${RARITY_INFO[rarity].color}">${RARITY_INFO[rarity].name}</div>
-    <div class="tip-desc">${behaviorText(def, mobKey, rarity)}</div>
-    <div class="tip-stats">HP ${Math.round(def.health*scale).toLocaleString()} · DMG ${Math.round(def.contactDmg*scale).toLocaleString()}</div>
-    ${tiers || '<div class="tip-desc">No drops unlocked at this rarity.</div>'}`;
+    <div class="tip-rar" style="color:#ffe27a">Level ${level}</div>
+    <div class="tip-desc">${behaviorText(def, mobKey, level)}</div>
+    <div class="tip-stats">HP ${Math.round(def.health*scale).toLocaleString()} · DMG ${Math.round(def.contactDmg*scale).toLocaleString()} · XP ${xpForKill(mobKey,level).toLocaleString()}</div>
+    <div class="ratecard-row">${cards}</div>`;
   positionTip(e, html);
 }
 
-/* ── Petal Gallery — grid of petal types × rarity columns ── */
+/* ── Petal Gallery — one cell per petal type, colored by its fixed rarity ── */
+/* ── Petal Gallery — same grid format as the Mob Gallery: rows = petal type, columns = tier ── */
 function renderPetalPanel(){
-  const rows = Object.keys(PETAL_DEFS).filter(k=>k!=='basic').map(petalKey=>{
-    const src = petalSource(petalKey);
-    const masked = src && (src.tier==='abyssmal'||src.tier==='hidden') && !discovered.has(petalKey);
-    if (masked){
-      const cells = RARITIES.map(()=>`<div class="gcell locked">🔒</div>`).join('');
-      return `<div class="grow">${cells}</div>`;
-    }
-    const cells = RARITIES.map(r=>`
-      <div class="gcell" style="--rc:${RARITY_INFO[r].color}" onclick="showPetalTip(event,'${petalKey}','${r}')">
-        <canvas class="picn" data-petal="${petalKey}" width="40" height="40"></canvas>
-      </div>`).join('');
+  const petalsSorted = Object.keys(PETAL_DEFS).filter(k=>k!=='basic').sort(byRarityThenNameAsc);
+  const rows = petalsSorted.map(petalKey=>{
+    const rc = RARITY_INFO[PETAL_RARITY[petalKey]].color;
+    const cells = TIERS.map(tier=>{
+      if (!tierPossible(petalKey, tier)) return `<div class="gcell impossible"></div>`;
+      if (!discoveredPetals.has(invKey(petalKey,tier))) return `<div class="gcell locked" style="--rc:${rc}">❓</div>`;
+      return `<div class="gcell" style="--rc:${rc}" onclick="showPetalTip(event,'${petalKey}',${tier})">
+        <canvas class="picn" data-petal="${petalKey}" data-tier="${tier}" width="40" height="40"></canvas>
+      </div>`;
+    }).join('');
     return `<div class="grow">${cells}</div>`;
   }).join('');
   return `
     <div class="panel-head"><h2>Petal Gallery</h2><button class="x" onclick="closePanel()">✕</button></div>
-    <div class="panel-body">
-      ${rows}
-    </div>`;
+    <div class="panel-body">${rows}</div>`;
 }
-function showPetalTip(e, petalKey, rarity){
+function showPetalTip(e, petalKey, tier){
   e.stopPropagation();
-  const def = PETAL_DEFS[petalKey];
-  const src = petalSource(petalKey);
-  const sourceBlock = src
-    ? `<div class="ratecard-row">${mobRefCard(src.mobKey)}</div>`
-    : '<div class="tip-desc">Starting petal.</div>';
+  tier = tier || 1;
+  const def = PETAL_DEFS[petalKey], rarity = PETAL_RARITY[petalKey];
+  const forgeBlock = petalKey==='basic' ? '<div class="tip-desc">Starting petal.</div>'
+    : `<div class="ratecard-row"><div class="ratecard" style="--rc:${RARITY_INFO[rarity].color}">
+        <canvas class="eicon" data-rarity="${rarity}" width="30" height="30"></canvas>
+        <div class="rc-name">${forgeCost(rarity)}x Essence</div>
+      </div></div>`;
   const parts = def.parts>1 ? `<div class="tip-stats">Spawns as ${def.parts} miniature copies</div>` : '';
+
+  // surface whatever secondary effect this petal actually has, at the clicked tier
+  const extraStats = [];
+  if (def.healBurst) extraStats.push(`Heals ${Math.round(pscale(def,'healBurst',petalKey,tier)).toLocaleString()} per use`);
+  if (def.healPerSec) extraStats.push(`Heals ${pscale(def,'healPerSec',petalKey,tier).toFixed(1)}/s`);
+  if (def.rangeBonus) extraStats.push(`+${Math.round(def.rangeBonus*specialTierScale(petalKey,'rangeBonus',tier)*100)}% range`);
+  if (def.rotBonus) extraStats.push(`+${Math.round(def.rotBonus*specialTierScale(petalKey,'rotBonus',tier)*100)}% rotation speed`);
+  if (def.reach) extraStats.push(`+${Math.round(def.reach*specialTierScale(petalKey,'reach',tier))}px reach`);
+  if (def.slowMult!=null){
+    extraStats.push(`Slows to ${Math.round(scaledSlowMult(def,petalKey,tier)*100)}% speed for ${scaledSlowDur(def,petalKey,tier).toFixed(1)}s`);
+  }
+  if (FLOWER_HP_PETALS[petalKey]) extraStats.push(`Grants +${Math.round((FLOWER_HP_PETALS[petalKey]-1)*tierScale(petalKey,tier)*100)}% flower HP while equipped`);
+  const extraBlock = extraStats.length ? `<div class="tip-stats">${extraStats.join(' · ')}</div>` : '';
+
   const html = `
     <div class="tip-name">${def.name}</div>
-    <div class="tip-rar" style="color:${RARITY_INFO[rarity].color}">${RARITY_INFO[rarity].name}</div>
+    <div class="tip-rar" style="color:${RARITY_INFO[rarity].color}">${RARITY_INFO[rarity].name} · Tier ${tier}${rarity==='mythic' ? ' · Cannot be tiered' : ` · scales ×${tierStep(petalKey)}/tier`}</div>
     <div class="tip-desc">${def.desc}</div>
-    <div class="tip-stats">HP ${Math.round(pscale(def,'health',rarity)).toLocaleString()} · DMG ${Math.round(pscale(def,'damage',rarity)).toLocaleString()} · Reload ${def.reload}s</div>
+    <div class="tip-stats">HP ${Math.round(pscale(def,'health',petalKey,tier)).toLocaleString()} · DMG ${Math.round(pscale(def,'damage',petalKey,tier)).toLocaleString()} · Reload ${def.reload}s</div>
+    ${extraBlock}
     ${parts}
-    ${sourceBlock}`;
+    ${forgeBlock}`;
   positionTip(e, html);
 }
+
+/* ── Craft — combine CRAFT_COST of one petal+tier for a chance at the next tier up.
+     Rendered as a pentagon of the 5 petals; attempting spins+pulses them, then either
+     converges them into the upgraded petal (success) or scatters back with 1-4 destroyed (fail). ── */
+// shift-click queues every full batch of CRAFT_COST you own at once instead of just one
+function selectCraftItem(petal, tier, bulk){
+  if (craftPhase!=='idle' || PETAL_RARITY[petal]==='mythic') return; // no mid-animation swaps, and mythics can't be crafted at all
+  craftSelection = { petal, tier };
+  craftBulk = !!bulk;
+  renderPanel();
+}
+function attemptCraft(){
+  if (!craftSelection || craftPhase!=='idle') return;
+  const { petal, tier } = craftSelection;
+  if (tier >= MAX_TIER) return; // tier 6 — nothing higher to craft into
+  const k = invKey(petal, tier);
+  if ((inventory[k]||0) < CRAFT_COST) return;
+  const bulk = craftBulk;
+  const rc = RARITY_INFO[PETAL_RARITY[petal]].color;
+
+  craftPhase = 'spinning';
+  // update the existing DOM in place instead of a full re-render — the pentagon should just
+  // start spinning where it already sits, not have the whole panel flash/rebuild under it
+  const root = document.getElementById('panelRoot');
+  root.querySelector('.craft-pentagon')?.classList.add('spinning');
+  const btn = root.querySelector('.craft-btn');
+  if (btn) btn.disabled = true;
+  const chanceEl = root.querySelector('.craft-chance');
+  if (chanceEl) chanceEl.textContent = 'Crafting…';
+  root.querySelector('.craft-grid')?.classList.add('busy');
+
+  setTimeout(()=>{
+    // a single craft is always exactly one attempt. A stack craft keeps re-attempting with
+    // whatever's left — including petals refunded from a failed attempt — until fewer than
+    // CRAFT_COST remain, instead of stopping after a fixed number of batches and leaving leftovers.
+    let remaining = inventory[k]||0;
+    let successCount = 0, failCount = 0, totalLost = 0, singleBatchDestroyedCount = 0;
+    do {
+      if (Math.random()*100 < CRAFT_CHANCE[tier]){
+        successCount++;
+        remaining -= CRAFT_COST;
+      } else {
+        const destroyedCount = 1 + Math.floor(Math.random()*4); // 1-4, not all 5 are lost
+        remaining -= destroyedCount;
+        totalLost += destroyedCount;
+        singleBatchDestroyedCount = destroyedCount;
+        failCount++;
+      }
+    } while (bulk && remaining >= CRAFT_COST);
+    const batches = successCount + failCount;
+    inventory[k] = remaining;
+    if (successCount>0){
+      const nk = invKey(petal, tier+1);
+      inventory[nk] = (inventory[nk]||0) + successCount;
+      discoveredPetals.add(nk);
+    }
+    // the pentagon only has 5 slots regardless of how many attempts ran — for a single craft use
+    // its own exact 1-4 roll; for a stack craft fall back to a proportional representative subset
+    let destroyedSlots = new Set();
+    if (failCount>0){
+      const showCount = batches===1 ? singleBatchDestroyedCount
+        : Math.min(4, Math.max(1, Math.round((successCount===0?4:5)*failCount/batches)));
+      const idxs = [0,1,2,3,4];
+      for (let x=idxs.length-1; x>0; x--){ const j=Math.floor(Math.random()*(x+1)); [idxs[x],idxs[j]]=[idxs[j],idxs[x]]; }
+      destroyedSlots = new Set(idxs.slice(0, showCount));
+    }
+    craftResult = { success: successCount>0, petal, tier, nextTier: successCount>0?tier+1:null, destroyedSlots, successCount, failCount, batches, totalLost };
+    craftPhase = 'result';
+    renderPanel();
+    saveProgress();
+
+    setTimeout(()=>{
+      craftPhase = 'idle';
+      craftResult = null;
+      renderPanel();
+    }, CRAFT_RESULT_HOLD*1000);
+  }, CRAFT_SPIN_DUR*1000);
+}
+const CRAFT_ARM_ANGLES = [0,72,144,216,288];
+function renderCraftPanel(){
+  const sel = craftSelection;
+  const isMax = sel && sel.tier >= MAX_TIER;
+  const have = sel ? (inventory[invKey(sel.petal,sel.tier)]||0) : 0;
+  // an estimate only — a stack craft's real attempt count depends on how the rolls land, since
+  // a failed attempt can refund petals back into the pool for another try
+  const batches = craftBulk ? Math.max(1, Math.floor(have/CRAFT_COST)) : 1;
+  const canCraft = !!sel && craftPhase==='idle' && !isMax && have>=CRAFT_COST;
+  const res = craftResult;
+  const rc = sel ? RARITY_INFO[PETAL_RARITY[sel.petal]].color : '#8d8256';
+  const resRc = res ? RARITY_INFO[PETAL_RARITY[res.petal]].color : rc;
+
+  // each pentagon slot stands in for a whole batch — e.g. 100 petals / 5 slots = ×20 each
+  const qtyBadge = batches>1 ? `<div class="craft-slot-badge">×${batches}</div>` : '';
+  const arms = CRAFT_ARM_ANGLES.map((ang,i)=>{
+    let slotHtml;
+    if (craftPhase==='result'){
+      if (res.success){
+        // still shown normally — the CSS merge animation is what slides & shrinks it into the center
+        slotHtml = `<div class="craftslot filled" style="--rc:${resRc}"><canvas class="picn" data-petal="${res.petal}" data-tier="${res.tier}" width="44" height="44"></canvas></div>`;
+      } else if (res.destroyedSlots.has(i)){
+        slotHtml = `<div class="craftslot filled destroyed" style="--rc:${resRc}"><canvas class="picn" data-petal="${res.petal}" data-tier="${res.tier}" width="44" height="44"></canvas></div>`;
+      } else {
+        slotHtml = `<div class="craftslot filled" style="--rc:${resRc}"><canvas class="picn" data-petal="${res.petal}" data-tier="${res.tier}" width="44" height="44"></canvas></div>`;
+      }
+    } else if (craftPhase==='spinning'){
+      slotHtml = `<div class="craftslot filled" style="--rc:${rc}"><canvas class="picn" data-petal="${sel.petal}" data-tier="${sel.tier}" width="44" height="44"></canvas>${qtyBadge}</div>`;
+    } else {
+      const filled = sel && i<Math.min(have, CRAFT_COST);
+      slotHtml = filled
+        ? `<div class="craftslot filled" style="--rc:${rc}"><canvas class="picn" data-petal="${sel.petal}" data-tier="${sel.tier}" width="44" height="44"></canvas>${qtyBadge}</div>`
+        : `<div class="craftslot"></div>`;
+    }
+    return `<div class="craft-arm" style="transform:rotate(${ang}deg)"><div class="craft-radius"><div class="craft-counter" style="transform:rotate(${-ang}deg)"><div class="craft-spin">${slotHtml}</div></div></div></div>`;
+  }).join('');
+
+  const centerShow = craftPhase==='result' && res.success;
+  const center = `<div class="craft-center"><div class="craft-center-inner ${centerShow?'show':''}" ${centerShow?`style="--rc:${resRc};background:${resRc}"`:''}>
+    ${centerShow?`<canvas class="picn" data-petal="${res.petal}" data-tier="${res.nextTier}" width="60" height="60"></canvas>`:''}
+    ${centerShow && res.successCount>1?`<div class="craft-center-badge">×${res.successCount}</div>`:''}
+  </div></div>`;
+
+  const pentagonState = craftPhase==='spinning' ? 'spinning'
+    : craftPhase==='result' ? (res.success ? 'result-success' : 'result-fail')
+    : '';
+
+  let chanceText = 'Select a petal';
+  if (craftPhase==='result'){
+    const petalName = PETAL_DEFS[res.petal].name;
+    if (res.successCount>0 && res.failCount===0){
+      chanceText = res.successCount>1
+        ? `Crafted ${res.successCount}x Tier ${res.nextTier} ${petalName}!`
+        : `Crafted ${petalName} (Tier ${res.nextTier})!`;
+    } else if (res.successCount>0){
+      chanceText = `Crafted ${res.successCount}x Tier ${res.nextTier} ${petalName} — ${res.failCount} failed`;
+    } else {
+      chanceText = `Failed — lost ${res.totalLost} ${petalName}`;
+    }
+  } else if (craftPhase==='spinning'){
+    chanceText = batches>1 ? `Crafting ${batches}x…` : 'Crafting…';
+  } else if (sel){
+    chanceText = isMax ? 'Already max tier' : `${CRAFT_CHANCE[sel.tier]}% success chance`;
+  }
+
+  const rows = Object.keys(PETAL_DEFS).filter(k=>k!=='basic' && PETAL_RARITY[k]!=='mythic').sort(byRarityThenNameAsc).map(petalKey=>{
+    const rowRc = RARITY_INFO[PETAL_RARITY[petalKey]].color;
+    const cells = TIERS.map(t=>{
+      const k = invKey(petalKey, t);
+      const cnt = inventory[k]||0;
+      if (!tierPossible(petalKey, t)) return `<div class="gcell impossible"></div>`;
+      if (!discoveredPetals.has(k)) return `<div class="gcell locked" style="--rc:${rowRc}">❓</div>`;
+      const isMax = t===MAX_TIER; // nothing to craft tier 6 into
+      const short = cnt < CRAFT_COST;
+      const disabled = isMax || short;
+      const isSel = sel && sel.petal===petalKey && sel.tier===t;
+      const cntText = cnt>999 ? (cnt/1000).toFixed(1)+'k' : cnt;
+      return `<div class="gcell ${isMax?'maxed':short?'short':''} ${isSel?'sel':''}" style="--rc:${rowRc}" ${disabled?'':`onclick="selectCraftItem('${petalKey}',${t},event.shiftKey)" title="Shift-click to queue all ${Math.floor(cnt/CRAFT_COST)} batches"`}>
+        <canvas class="picn" data-petal="${petalKey}" data-tier="${t}" width="40" height="40"></canvas>
+        <div class="gc-tier">${toRoman(t)}</div>
+        <div class="gc-count">x${cntText}</div>
+      </div>`;
+    }).join('');
+    return `<div class="grow">${cells}</div>`;
+  }).join('');
+
+  return `
+    <div class="panel-head"><h2>Craft</h2><button class="x" onclick="closePanel()">✕</button></div>
+    <div class="craft-fixed">
+      <div class="craft-top">
+        <div class="craft-pentagon ${pentagonState}">${arms}${center}</div>
+        <div class="craft-action">
+          <button class="craft-btn" ${canCraft?'':'disabled'} onclick="attemptCraft()">Craft</button>
+          <div class="craft-chance">${chanceText}</div>
+        </div>
+      </div>
+      <div class="craft-hint">Combine ${CRAFT_COST} of the same petal+tier to craft the next tier — shift-click to queue every batch you own. Mythic petals can't be tiered.</div>
+    </div>
+    <div class="panel-body">
+      <div class="craft-grid ${craftPhase!=='idle'?'busy':''}">${rows}</div>
+    </div>`;
+}
+
+/* ── Forge — guaranteed-success way to obtain ANY petal at tier 1, spending essence of that
+     petal's rarity. List of all petals (rarity-sorted); click one to view its recipe. ── */
+function selectForgeItem(petal, bulk){
+  if (forgePhase!=='idle') return; // no mid-animation swaps
+  forgeSelection = petal;
+  forgeBulk = !!bulk;
+  renderPanel();
+}
+function attemptForge(){
+  if (!forgeSelection || forgePhase!=='idle') return;
+  const rarity = PETAL_RARITY[forgeSelection];
+  const cost = forgeCost(rarity);
+  const k = essenceKey(rarity);
+  const have = essence[k]||0;
+  if (have < cost) return;
+  const batches = forgeBulk ? Math.max(1, Math.floor(have/cost)) : 1;
+
+  forgePhase = 'spinning';
+  const root = document.getElementById('panelRoot');
+  root.querySelector('.craft-pentagon')?.classList.add('spinning');
+  const btn = root.querySelector('.craft-btn');
+  if (btn) btn.disabled = true;
+  const chanceEl = root.querySelector('.craft-chance');
+  if (chanceEl) chanceEl.textContent = 'Forging…';
+
+  setTimeout(()=>{
+    essence[k] -= cost*batches;
+    const startTier = RARITY_START_TIER[rarity];
+    const nk = invKey(forgeSelection, startTier);
+    inventory[nk] = (inventory[nk]||0) + batches;
+    discoveredPetals.add(nk);
+    forgeResult = { petal: forgeSelection, tier: startTier, count: batches };
+    forgePhase = 'result';
+    renderPanel();
+    saveProgress();
+
+    setTimeout(()=>{
+      forgePhase = 'idle';
+      forgeResult = null;
+      renderPanel();
+    }, CRAFT_RESULT_HOLD*1000);
+  }, CRAFT_SPIN_DUR*1000);
+}
+function renderForgePanel(){
+  if (!forgeSelection){
+    // the forge always shows what you're picking — discovery only hides a petal's stats,
+    // which live in the Petal Gallery instead
+    const petalsSorted = Object.keys(PETAL_DEFS).filter(k=>k!=='basic').sort(byRarityThenNameAsc);
+    const cells = petalsSorted.map(petalKey=>{
+      const rc = RARITY_INFO[PETAL_RARITY[petalKey]].color;
+      const rarity = PETAL_RARITY[petalKey], cost = forgeCost(rarity);
+      const have = essence[essenceKey(rarity)]||0;
+      return `<div class="gcell" style="--rc:${rc}" onclick="selectForgeItem('${petalKey}',event.shiftKey)" title="Shift-click to queue all ${Math.floor(have/cost)} batches">
+        <canvas class="picn" data-petal="${petalKey}" width="40" height="40"></canvas>
+      </div>`;
+    }).join('');
+    return `
+      <div class="panel-head"><h2>Forge</h2><button class="x" onclick="closePanel()">✕</button></div>
+      <div class="panel-body">
+        <div class="inv-sub">Click a petal to view its forge recipe — shift-click to queue every batch you own</div>
+        <div class="grow">${cells}</div>
+      </div>`;
+  }
+
+  const target = forgeSelection;
+  const rarity = PETAL_RARITY[target];
+  const cost = forgeCost(rarity);
+  const startTier = RARITY_START_TIER[rarity];
+  const perSlot = cost/5;
+  const have = essence[essenceKey(rarity)]||0;
+  const canForge = forgePhase==='idle' && have>=cost;
+  const rc = RARITY_INFO[rarity].color;
+  // an estimate only while idle — mirrors the craft menu's batch estimate
+  const batches = forgeBulk ? Math.max(1, Math.floor(have/cost)) : 1;
+  const res = forgeResult;
+
+  const slotCount = perSlot * (forgePhase==='result' ? res.count : batches);
+  const qtyBadge = slotCount>1 ? `<div class="craft-slot-badge">×${slotCount}</div>` : '';
+  const arms = CRAFT_ARM_ANGLES.map(ang=>{
+    const cls = have>=cost ? 'filled' : 'filled missing';
+    return `<div class="craft-arm" style="transform:rotate(${ang}deg)"><div class="craft-radius"><div class="craft-counter" style="transform:rotate(${-ang}deg)"><div class="craft-spin"><div class="craftslot ${cls}" style="--rc:${rc}"><canvas class="eicon" data-rarity="${rarity}" width="44" height="44"></canvas>${qtyBadge}</div></div></div></div></div>`;
+  }).join('');
+
+  // the center stays hidden (no petal spoiler, no idle placeholder) until a forge actually
+  // succeeds, then reveals the result exactly like the craft menu's center reveal
+  const centerShow = forgePhase==='result';
+  const center = `<div class="craft-center"><div class="craft-center-inner ${centerShow?'show':''}" ${centerShow?`style="--rc:${rc};background:${rc}"`:''}>
+    ${centerShow?`<canvas class="picn" data-petal="${target}" data-tier="${startTier}" width="60" height="60"></canvas>`:''}
+    ${centerShow && res.count>1?`<div class="craft-center-badge">×${res.count}</div>`:''}
+  </div></div>`;
+
+  const pentagonState = forgePhase==='spinning' ? 'spinning' : forgePhase==='result' ? 'result-success' : '';
+
+  let statusText;
+  if (forgePhase==='spinning') statusText = batches>1 ? `Forging ${batches}x…` : 'Forging…';
+  else if (forgePhase==='result') statusText = res.count>1 ? `Forged ${res.count}x ${PETAL_DEFS[target].name}!` : `Forged ${PETAL_DEFS[target].name}!`;
+  else statusText = canForge ? 'Ready to forge' : `Need ${cost}x ${RARITY_INFO[rarity].name} Essence`;
+
+  return `
+    <div class="panel-head"><h2>Forge — ${PETAL_DEFS[target].name}</h2><button class="x" onclick="closePanel()">✕</button></div>
+    <div class="craft-fixed">
+      <div class="craft-top">
+        <div class="craft-pentagon ${pentagonState}">${arms}${center}</div>
+        <div class="craft-action">
+          <button class="craft-btn" ${canForge?'':'disabled'} onclick="attemptForge()">Forge</button>
+          <div class="craft-chance">${statusText}</div>
+        </div>
+      </div>
+      <div class="craft-hint">Requires ${cost}x ${RARITY_INFO[rarity].name} Essence (have ${have}) — outputs a fresh Tier ${startTier} petal${batches>1?` · queued ${batches}x`:''}</div>
+    </div>
+    <div class="panel-body">
+      <div class="inv-sub"><span style="cursor:pointer;text-decoration:underline" onclick="selectForgeItem(null)">← back to list</span></div>
+    </div>`;
+}
+
+/* ══════════════════════════════════════════
+   ACCOUNTS + SAVE  ·  local/dev auth — see .server.cjs for the API
+   ══════════════════════════════════════════ */
+let authed = true; // sign-in disabled for now (was failing to fetch) — game just runs unauthenticated
+let authToken = null;
+
+function authHeaders(){ return authToken ? {'Authorization':'Bearer '+authToken} : {}; }
+async function apiPost(path, body){
+  const res = await fetch(path, { method:'POST', headers:{'Content-Type':'application/json', ...authHeaders()}, body: JSON.stringify(body||{}) });
+  const data = await res.json().catch(()=>({}));
+  if (!res.ok) throw new Error(data.error || 'request failed');
+  return data;
+}
+async function apiGet(path){
+  const res = await fetch(path, { headers: authHeaders() });
+  const data = await res.json().catch(()=>({}));
+  if (!res.ok) throw new Error(data.error || 'request failed');
+  return data;
+}
+// only true progress is saved — not ephemeral world/session state like position, live mobs,
+// pickups, or which panel is open
+function buildSavePayload(){
+  return {
+    playerLevel, playerXp, inventory,
+    discoveredPetals: Array.from(discoveredPetals),
+    killedMobs: Array.from(killedMobs),
+    loadouts, activeLoadout, essence,
+  };
+}
+function applySave(save){
+  if (!save) return;
+  if (save.playerLevel!=null) playerLevel = save.playerLevel;
+  if (save.playerXp!=null) playerXp = save.playerXp;
+  if (save.inventory) inventory = save.inventory;
+  if (save.discoveredPetals) discoveredPetals = new Set(save.discoveredPetals);
+  if (save.killedMobs) killedMobs = new Set(save.killedMobs);
+  if (save.loadouts) loadouts = save.loadouts;
+  if (save.activeLoadout!=null) activeLoadout = save.activeLoadout;
+  if (save.essence) essence = save.essence;
+  player = makePlayer();
+  rebuildInstances();
+}
+let saveInFlight = false;
+function saveProgress(){
+  if (!authed || !authToken || saveInFlight) return; // no-op while sign-in is disabled (no token)
+  saveInFlight = true;
+  apiPost('/api/save', buildSavePayload()).catch(()=>{}).finally(()=>{ saveInFlight = false; });
+}
+function setAuthError(msg){ document.getElementById('authError').textContent = msg || ''; }
+// isResume: true when restoring a stored session on page load (vs a fresh login/signup click) —
+// only then do we bounce back to the login screen if the token turns out to be stale
+async function enterGame(token, username, isResume){
+  authToken = token;
+  try {
+    const { save } = await apiGet('/api/load');
+    applySave(save);
+  } catch(e){
+    if (isResume){
+      localStorage.removeItem('florrToken'); localStorage.removeItem('florrUser');
+      document.getElementById('authScreen').classList.add('show');
+      return;
+    }
+  }
+  localStorage.setItem('florrToken', token);
+  localStorage.setItem('florrUser', username);
+  authed = true;
+  document.getElementById('authScreen').classList.remove('show');
+  document.getElementById('logoutBtn').style.display = '';
+}
+function doLogin(){
+  const username = document.getElementById('authUser').value.trim();
+  const password = document.getElementById('authPass').value;
+  setAuthError('');
+  apiPost('/api/login', {username, password}).then(({token})=>enterGame(token, username)).catch(e=>setAuthError(e.message));
+}
+function doSignup(){
+  const username = document.getElementById('authUser').value.trim();
+  const password = document.getElementById('authPass').value;
+  setAuthError('');
+  apiPost('/api/signup', {username, password}).then(({token})=>enterGame(token, username)).catch(e=>setAuthError(e.message));
+}
+function logout(){
+  saveProgress();
+  localStorage.removeItem('florrToken'); localStorage.removeItem('florrUser');
+  location.reload();
+}
+window.doLogin = doLogin; window.doSignup = doSignup; window.logout = logout;
+
+setInterval(saveProgress, 15000);
+addEventListener('visibilitychange', ()=>{ if (document.visibilityState==='hidden') saveProgress(); });
+addEventListener('beforeunload', saveProgress);
 
 /* ══════════════════════════════════════════
    INIT + MAIN LOOP
    ══════════════════════════════════════════ */
-loadout = defaultLoadout();
+loadouts = [defaultLoadout(), defaultLoadout()];
 rebuildInstances();
 seedMobs();
 
@@ -1391,6 +2433,9 @@ function loop(now){
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
+
+// sign-in is disabled for now — skip showing the login screen and skip session resume/auto-save
+// entirely (re-enable by restoring the block this replaced)
 </script>
 </body>
 </html>
