@@ -1002,8 +1002,10 @@ function update(dt){
 function onDeath(){ dead = true; document.getElementById('dead').classList.add('show'); }
 function respawn(){
   // only the player resets — mobs and ground pickups persist through death instead of the
-  // whole map being wiped and reseeded
+  // whole map being wiped and reseeded. Mobs do drop their aggro though, so you don't respawn
+  // straight back into a chase from whatever was hunting you when you died.
   player = makePlayer(); rebuildInstances();
+  for (const m of mobs) m.aggro = false;
   dead = false; document.getElementById('dead').classList.remove('show');
 }
 window.respawn = respawn;
