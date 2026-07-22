@@ -775,6 +775,10 @@ function updateMob(m, dt){
    ══════════════════════════════════════════ */
 function breakInstance(inst, def){
   inst.broken = true; inst.regenT = def.reload; inst.flying = false; inst.health = 0;
+  // snap back to the flower right away instead of leaving x/y at wherever it died
+  // (often overlapping the mob that killed it) — otherwise it renders stuck inside
+  // the mob for the whole reload period
+  inst.x = player.x; inst.y = player.y;
 }
 function orbitTarget(inst){
   const def = PETAL_DEFS[inst.petal];
@@ -784,22 +788,6 @@ function orbitTarget(inst){
   let radius = def.defensive ? player.orbitRDef : player.orbitR;
   if (def.reach) radius += inst.reachEase||0;
   return { x: player.x + Math.cos(ang)*radius, y: player.y + Math.sin(ang)*radius };
-}
-// a wide-expanded orbit ring (up to ORBIT.expandR, further stretched by reach/range bonuses)
-// can geometrically land inside a large or high-level mob's body once the player is pressed
-// right up against it — nudge the petal back out to just past that mob's edge instead of
-// letting it render (and visually sit) stuck inside
-function keepInstanceOutOfMobs(inst){
-  for (const m of mobs){
-    if (m.dying) continue;
-    const dx = inst.x - m.x, dy = inst.y - m.y;
-    const minD = m.r + 6;
-    const d = len(dx, dy);
-    if (d < minD){
-      if (d > 0.0001){ inst.x = m.x + dx/d*minD; inst.y = m.y + dy/d*minD; }
-      else { inst.x = m.x + minD; inst.y = m.y; }
-    }
-  }
 }
 function positionInstance(inst, dt){
   if (inst.flying){ inst.x += inst.vx*dt; inst.y += inst.vy*dt; inst.life -= dt; return; }
@@ -812,7 +800,6 @@ function positionInstance(inst, dt){
   } else {
     inst.x = t.x; inst.y = t.y;
   }
-  keepInstanceOutOfMobs(inst);
 }
 function updateInstances(dt){
   let rotBonus=0, rangeBonus=0;
