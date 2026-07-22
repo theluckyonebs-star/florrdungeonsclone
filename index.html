@@ -785,6 +785,22 @@ function orbitTarget(inst){
   if (def.reach) radius += inst.reachEase||0;
   return { x: player.x + Math.cos(ang)*radius, y: player.y + Math.sin(ang)*radius };
 }
+// a wide-expanded orbit ring (up to ORBIT.expandR, further stretched by reach/range bonuses)
+// can geometrically land inside a large or high-level mob's body once the player is pressed
+// right up against it — nudge the petal back out to just past that mob's edge instead of
+// letting it render (and visually sit) stuck inside
+function keepInstanceOutOfMobs(inst){
+  for (const m of mobs){
+    if (m.dying) continue;
+    const dx = inst.x - m.x, dy = inst.y - m.y;
+    const minD = m.r + 6;
+    const d = len(dx, dy);
+    if (d < minD){
+      if (d > 0.0001){ inst.x = m.x + dx/d*minD; inst.y = m.y + dy/d*minD; }
+      else { inst.x = m.x + minD; inst.y = m.y; }
+    }
+  }
+}
 function positionInstance(inst, dt){
   if (inst.flying){ inst.x += inst.vx*dt; inst.y += inst.vy*dt; inst.life -= dt; return; }
   const t = orbitTarget(inst);
@@ -796,6 +812,7 @@ function positionInstance(inst, dt){
   } else {
     inst.x = t.x; inst.y = t.y;
   }
+  keepInstanceOutOfMobs(inst);
 }
 function updateInstances(dt){
   let rotBonus=0, rangeBonus=0;
@@ -822,7 +839,13 @@ function updateInstances(dt){
       inst.regenT -= dt;
       if (inst.regenT<=0){
         inst.broken=false; inst.health = pscale(def,'health',inst.petal,tier); inst.flying=false;
+        // snap back to the flower immediately — otherwise inst.x/y are left wherever the
+        // petal died (often right on top of the mob that killed it), and the collision
+        // check later this same frame sees it as "alive" at that stale position, dealing
+        // an instant hit no matter where the player currently is
+        inst.x = player.x; inst.y = player.y;
         inst.spawnT = 0; inst.eating = false;
+        inst.hitCd = PETAL_HIT_CD;
         if (def.armTime) inst.armT = def.armTime;
       }
       continue;
