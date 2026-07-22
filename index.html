@@ -320,16 +320,8 @@ addEventListener('contextmenu', e => e.preventDefault());
 
 /* ══════════════════════════════════════════
    RARITY (cosmetic, fixed per petal) & TIER (power progression, 1-6)
-   — RARITIES/PETAL_RARITY/TIERS/tier & rarity scaling all now live in balance.js
+   — RARITIES/RARITY_INFO/PETAL_RARITY/TIERS/tier & rarity scaling all now live in balance.js
    ══════════════════════════════════════════ */
-const RARITY_INFO = {
-  common:    { name:'Common',    color:'#7eef6d' },
-  unusual:   { name:'Unusual',   color:'#ffe65d' },
-  rare:      { name:'Rare',      color:'#4d52e3' },
-  epic:      { name:'Epic',      color:'#861fde' },
-  legendary: { name:'Legendary', color:'#de1f1f' },
-  mythic:    { name:'Mythic',    color:'#1fdbde' },
-};
 const TIER_ROMAN = ['','I','II','III','IV','V','VI'];
 function toRoman(tier){ return TIER_ROMAN[tier] || String(tier); }
 // Inventory sorts rarity high→low; every other petal-listing menu (Craft, Petal Gallery,

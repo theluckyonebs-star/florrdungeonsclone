@@ -18,7 +18,41 @@ const ZONES = [
 /* ══════════════════════════════════════════
    RARITY (cosmetic, fixed per petal) & TIER (power progression, 1-6)
    ══════════════════════════════════════════ */
+/* ── HOW TO ADD A NEW ESSENCE / RARITY ────────────────────────────────────────────────────
+   "Rarity" and "essence type" are the same list — every entry in RARITIES below is both a
+   petal-color tier AND a currency the Forge accepts. To add a new one (e.g. `chroma`):
+     1. Add its key to RARITIES below (order matters only for display — gallery/inventory
+        sections list rarities in this order). Mobs automatically start dropping it too,
+        since ALL_RARITIES_DROP (further down) is just `[...RARITIES]`.
+     2. Add its display name + color to RARITY_INFO right below — this alone makes it show up
+        correctly in every panel (inventory, forge, mob tooltips, gallery).
+     3. Give it a drop chance per mob level in DROP_RATE_TABLE — you only need to add the key
+        to levels where you want it to actually drop; any level missing the key defaults to 0%
+        for that rarity, so you can introduce it starting at, say, level 20 and leave it out of
+        every level below that.
+     4. Set its forge cost in FORGE_COST_BY_RARITY (defaults to 5 if you skip this step).
+     5. OPTIONAL — set RARITY_BUFF (defaults to 1x, no bonus) and RARITY_START_TIER (defaults
+        to 1, forges in at tier 1) if you want this rarity's petals to hit harder/have more HP,
+        or forge in at a higher starting tier, the way rare/epic/legendary/mythic do.
+     6. OPTIONAL — set RARITY_INTRO_ZONE (further down, near ZONE_MULTIPLIER_SEQUENCE) if you
+        want this rarity to get the zone-jackpot multicopy treatment; skip it and the rarity
+        just never rolls a jackpot multiplier (always drops ×1), which is a totally fine
+        default for a brand-new rarity while you're testing it.
+   None of this needs any index.html changes — every panel reads rarities generically off
+   these tables. The only thing you can't do here is give a NEW PETAL a new shape/animation
+   (see the petal `desc`/`shape` fields below — `shape` must match a case already drawn in
+   index.html's `drawPetalIcon`/petal-instance renderer, same limitation as mob art). ─────── */
 const RARITIES = ['common','unusual','rare','epic','legendary','mythic'];
+// display name + swatch color shown everywhere a rarity appears (inventory sections, forge
+// panel, mob-tooltip essence rate cards, gallery rarity labels, etc)
+const RARITY_INFO = {
+  common:    { name:'Common',    color:'#7eef6d' },
+  unusual:   { name:'Unusual',   color:'#ffe65d' },
+  rare:      { name:'Rare',      color:'#4d52e3' },
+  epic:      { name:'Epic',      color:'#861fde' },
+  legendary: { name:'Legendary', color:'#de1f1f' },
+  mythic:    { name:'Mythic',    color:'#1fdbde' },
+};
 // which rarity (→ container color) each petal belongs to — fixed forever, unrelated to tier
 const PETAL_RARITY = {
   basic:'common', rose:'common', rock:'common', light:'common', stinger:'common',
@@ -51,9 +85,10 @@ function specialTierScale(petalId, statKey, tier){
 // longer out-scale each other via rarity crafting, so rarity buffs this way instead
 const RARITY_BUFF = { common:1, unusual:1, rare:2, epic:4, legendary:8, mythic:1 };
 // rarer petals are forged straight into a higher starting tier — they immediately carry that
-// tier's stat buffs, rather than starting from scratch at tier 1 like commons do
+// tier's stat buffs, rather than starting from scratch at tier 1 like commons do.
+// (a rarity left out of this table defaults to starting tier 1, same as common)
 const RARITY_START_TIER = { common:1, unusual:2, rare:3, epic:4, legendary:5, mythic:6 };
-function tierPossible(petal, tier){ return tier >= RARITY_START_TIER[PETAL_RARITY[petal]]; }
+function tierPossible(petal, tier){ return tier >= (RARITY_START_TIER[PETAL_RARITY[petal]] ?? 1); }
 function pscale(def, key, petalId, tier){
   const rarity = PETAL_RARITY[petalId];
   if (petalId==='moon'){
@@ -179,12 +214,16 @@ const PETAL_DEFS = {
   moon:     { name:'Moon',     color:'#dfe7ff', shape:'crescent',health:500,damage:10, reload:10.0, desc:'Ridiculous amounts of HP, but an extremely slow reload.' },
 };
 // Forging — a guaranteed-success way to obtain ANY petal at tier 1, spending essence of that
-// petal's rarity. Cost is a flat 5 for common/unusual/rare, 10 for epic+, shown across the same
-// 5-slot craft-pentagon layout (1 essence/slot, or 2/slot for epic+).
-function forgeCost(rarity){ return (rarity==='epic'||rarity==='legendary'||rarity==='mythic') ? 10 : 5; }
-// combine CRAFT_COST of the same petal+tier for a chance at the next tier up
+// petal's rarity. Shown across a 5-slot craft-pentagon layout (so e.g. a cost of 10 fills 2
+// essence per slot). A rarity left out of this table costs 5 by default — add a line here to
+// give a new/adjusted rarity its own cost.
+const FORGE_COST_BY_RARITY = { common:5, unusual:5, rare:5, epic:10, legendary:10, mythic:10 };
+function forgeCost(rarity){ return FORGE_COST_BY_RARITY[rarity] ?? 5; }
+// combine CRAFT_COST of the same petal+tier for a chance at the next tier up. CRAFT_CHANCE is
+// keyed by CURRENT tier (not rarity) and applies the same to every petal regardless of rarity —
+// tier 6 has no entry since there's no tier 7 to craft into.
 const CRAFT_COST = 5;
-const CRAFT_CHANCE = { 1:50, 2:25, 3:10, 4:5, 5:2 }; // keyed by current tier; tier 6 has no next tier
+const CRAFT_CHANCE = { 1:50, 2:25, 3:10, 4:5, 5:2 };
 
 /* ══════════════════════════════════════════
    MOB DEFINITIONS
@@ -193,9 +232,64 @@ const MOB_KNOCKBACK = 155; // uniform for every mob unless a gimmick overrides i
 // drops: every mob can drop essence of any rarity for now (deduped list kept purely so the
 // per-mob "flavor" is easy to bring back later — currently all 6 rarities for every mob)
 const ALL_RARITIES_DROP = [...RARITIES];
-// stats rebalanced around a new Ladybug baseline of 100 hp / 10 dmg, scaling every other mob's
-// old health by 100/45 and old contactDmg/petalDmg by 10/8 to preserve their existing ratios.
-// aggroRange is the level-1/common-zone base value — it scales up via aggroRangeScale below.
+/* ── HOW TO ADD A NEW MOB ─────────────────────────────────────────────────────────────────
+   1. Copy one of the entries below and change the key (e.g. `wasp:`) — that key is the mob's
+      internal "type" id used everywhere else in the game (drops, save data, etc).
+   2. Fill in the fields per the reference below. Only `name`/`r`/`health`/`contactDmg`/
+      `petalDmg`/`mass`/`friction`/`speed`/`behavior`/`color`/`weight`/`drops` are required —
+      everything else is optional and only needed for specific behavior (see below).
+   3. THE ONE THING THIS FILE CAN'T DO: giving the mob its own look. Mobs are drawn with hand-
+      coded canvas shapes in index.html, not images, so a brand-new mob renders as a plain
+      colored circle (via `color` above) until you also add a `drawX(m)` function in index.html
+      and wire it into the two `switch(m.type){ case 'yourkey': ... }` blocks there
+      (search for "function drawMob" — one switch draws it in the world, the other draws its
+      gallery icon). Reusing an existing mob's `color`/shape without adding a draw function is
+      fine if a circle is good enough for now.
+   4. That's it — level scaling, zone placement, drop rates, aggro range, and its gallery/
+      tooltip entry all pick the new mob up automatically from the fields below.
+
+   ── FIELD REFERENCE (per mob) ──
+     name        display name shown in the mob gallery / tooltips.
+     r           base radius in pixels at level 1 — this is what SIZE_BY_LEVEL below scales up
+                 for higher-level spawns of the same mob (bigger numbers = physically bigger).
+     health      base HP at level 1 (common zone). Scales up per level via mobLevelScale below —
+                 you never set higher-level HP directly, it's always this base × the curve.
+     contactDmg  damage dealt to the PLAYER on contact. Also level-scaled by mobLevelScale.
+     petalDmg    damage dealt to a PETAL that's touching this mob. Also level-scaled.
+     mass        used in physics (knockback resistance, mob-vs-mob overlap push). Heavier =
+                 harder to knock back and pushes lighter mobs out of the way more.
+     friction    how fast the mob's own velocity decays — higher = stops/turns quicker.
+     speed       top movement speed in px/s (0 for something that never moves, e.g. Rock).
+     behavior    one of:
+                   'passive'         — never attacks or chases, wanders on its own.
+                   'neutral'         — ignores you until you hit it, then chases.
+                   'neutral-swerve'  — same as neutral, but chases with a side-to-side swerve.
+                   'hostile'         — chases on sight (no need to be hit first) once you're
+                                       within aggroRange (required for this behavior).
+                   'stationary'      — never moves at all, but can still be attacked/damaged.
+     aggroRange  REQUIRED for 'hostile' only — detection radius in px at level 1. Grows with
+                 level via aggroRangeScale below (much gentler curve than health/damage so it
+                 doesn't become absurd at high level).
+     color       fallback fill color — used directly if you don't add a custom draw function,
+                 and still used for things like the gallery-icon background either way.
+     weight      relative spawn frequency vs other mobs in the same zone (bigger = more common).
+                 Automatically multiplied by HOSTILE_ZONE_MULT/PASSIVE_ZONE_MULT below based on
+                 this mob's `behavior`, so hostiles naturally get rarer in easy zones and passive
+                 mobs get rarer in hard zones — you don't need to hand-tune that per zone.
+     minZone     OPTIONAL, 0-indexed (0=Garden,1=Desert,2=Mesa,3=Glacier,4=Abyss). Set this if
+                 the mob should be locked out of earlier/easier zones entirely (weight becomes 0
+                 there). Omit it to let the mob spawn everywhere.
+     drops       which essence rarities this mob can drop — currently every mob uses the shared
+                 ALL_RARITIES_DROP constant (all 6), so just reuse that unless you want a mob
+                 that can only ever drop, say, common/unusual essence.
+     retaliateLevel / retaliateDesc   OPTIONAL PAIR, only needed if the mob's fight-back
+                 behavior should flip at some level (like Ladybug/Bee below — normally
+                 passive/neutral but bite back once high-level). If set, retaliateDesc(def,
+                 fightsBack) must return the tooltip text for both the pre- and post-threshold
+                 case; shouldAggroOnHit() will use `m.level >= retaliateLevel` instead of the
+                 plain behavior check. Leave both off entirely for a mob whose behavior never
+                 changes with level.
+   ────────────────────────────────────────────────────────────────────────────────────────── */
 const MOB_DEFS = {
   ant: {
     name:'Ant', r:20, health:122, contactDmg:17.5, petalDmg:12.5, mass:3, friction:7,
@@ -238,22 +332,34 @@ const MOB_DEFS = {
     drops:ALL_RARITIES_DROP,
   },
 };
+// the only levels a mob can actually spawn at — every ZONES entry's `levels` array (top of
+// this file) must be a subset of this list. Every mob type can appear at any of these levels;
+// there's no per-mob level list, it's purely which ZONES.levels a mob's zone/weight allow.
 const MOB_LEVELS = [1,5,10,15,20,25,30,35,40,45,50,55,70];
+// the master difficulty curve — health/contactDmg/petalDmg for EVERY mob are multiplied by
+// this at spawn time (3x for every 5 levels gained), so bumping a mob's base numbers in
+// MOB_DEFS above scales proportionally at every level for free.
 function mobLevelScale(level){ return Math.pow(3, Math.floor(level/5)); }
 // aggro range starts lower (see MOB_DEFS.aggroRange above) and grows 1.1x every 5 levels —
 // much gentler than the 3x/5-level health/damage curve, so high-level hostiles notice you
 // from further away without becoming absurdly HP/damage-scaled on top of it
 function aggroRangeScale(level){ return Math.pow(1.1, Math.floor(level/5)); }
+// visual-only size multiplier applied on top of a mob's base `r`, keyed by level. Every mob
+// uses this same table (no per-mob override) — a level-70 mob of any type renders 3.2x its
+// base radius. Add/adjust an entry here if you add a new level to MOB_LEVELS above.
 const SIZE_BY_LEVEL = {1:1,5:1.05,10:1.1,15:1.15,20:1.2,25:1.3,30:1.4,35:1.5,40:1.6,45:1.8,50:2.0,55:2.3,70:3.2};
 // hostile mobs get more common the harder the zone; passive mobs get more common the easier it is.
 // neutral/stationary mobs are unaffected. A mob with minZone set can't spawn in easier zones at all.
+// index = zone.idx (0=Garden ... 4=Abyss); value = multiplier applied to that mob's `weight`.
 const HOSTILE_ZONE_MULT = [0.4, 0.8, 1.4, 2, 2.6];
 const PASSIVE_ZONE_MULT = [2.6, 2, 1.4, 0.8, 0.4];
+// final spawn-weight for one mob type in one zone — this is what pickWeighted() (index.html)
+// actually rolls against when picking which mob type to spawn next in that zone.
 function zoneMobWeight(def, zoneIdx){
-  if (zoneIdx < (def.minZone||0)) return 0;
+  if (zoneIdx < (def.minZone||0)) return 0;               // locked out of this zone entirely
   if (def.behavior==='hostile') return def.weight * HOSTILE_ZONE_MULT[zoneIdx];
   if (def.behavior==='passive') return def.weight * PASSIVE_ZONE_MULT[zoneIdx];
-  return def.weight;
+  return def.weight;                                       // neutral/stationary: unaffected
 }
 // XP is derived from the mob's actual (level-scaled) health and damage instead of a
 // hand-picked constant, so tougher mobs — at any level — are always worth more
