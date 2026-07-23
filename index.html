@@ -298,6 +298,12 @@ addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
   keys[k] = true;
   if (e.code === 'Space') { keys[' '] = true; e.preventDefault(); }
+  // movement keys are polled continuously from `keys` regardless of repeat, but the
+  // one-shot actions below (panel toggles, loadout swap, quick-slot) must fire exactly once
+  // per physical press — without this, the OS's key-repeat (holding a key, or even a slightly
+  // long tap) re-fires keydown many times a second, rapidly toggling a panel open/closed/open
+  // and making it look like it "breaks" into a flash of nothing or the wrong menu
+  if (e.repeat) return;
   if (k==='z') togglePanel('inventory');
   else if (k==='v') togglePanel('mob');
   else if (k==='b') togglePanel('petal');
