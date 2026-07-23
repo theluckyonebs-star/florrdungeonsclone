@@ -317,7 +317,7 @@ const MOB_DEFS = {
       : "Passive — low-level bees won't fight back, even if attacked.",
   },
   spider: {
-    name:'Spider', r:24, health:71, contactDmg:17.5, petalDmg:11.25, mass:8, friction:8,
+    name:'Spider', r:18, health:71, contactDmg:17.5, petalDmg:11.25, mass:8, friction:8,
     speed:240, behavior:'hostile', aggroRange:260, color:'#2b2b33', weight:15,
     drops:ALL_RARITIES_DROP,
   },
@@ -327,8 +327,8 @@ const MOB_DEFS = {
     drops:ALL_RARITIES_DROP,
   },
   beetle: {
-    name:'Beetle', r:44, health:133, contactDmg:27.5, petalDmg:16.25, mass:5, friction:7,
-    speed:300, behavior:'hostile', aggroRange:160, color:'#3a2a6b', weight:12, minZone:1, // can't spawn in the Garden zone
+    name:'Beetle', r:33, health:133, contactDmg:27.5, petalDmg:16.25, mass:5, friction:7,
+    speed:300, behavior:'hostile', aggroRange:120, color:'#3a2a6b', weight:12, minZone:1, // can't spawn in the Garden zone
     drops:ALL_RARITIES_DROP,
   },
 };

@@ -280,7 +280,7 @@ function pickWeighted(list){
   return list[list.length-1];
 }
 
-const ARENA = { w: 19200, h: 1500 }; // 3x width — each of the 5 biome strips is 3x its original size
+const ARENA = { w: 19200, h: 3000 }; // 3x width; height doubled (1500 -> 3000) for a bigger, roomier map
 
 /* ── difficulty zones — ZONES itself now lives in balance.js ── */
 function zoneAt(x){
@@ -2291,7 +2291,9 @@ function handleDeaths(deaths){
 
 function attachWorldSubs(){
   if (worldSubsAttached) return; worldSubsAttached = true;
-  window.MP.subscribeMobs(obj => { if (!amHost) ingestWorldMobs(obj); });
+  // only mirror broadcast mobs once host-election has run (hostId set) AND we're not the host —
+  // otherwise a stale world/mobs snapshot arriving before election gets adopted as our world
+  window.MP.subscribeMobs(obj => { if (!amHost && hostId !== null) ingestWorldMobs(obj); });
   window.MP.subscribeHits(hits => { if (amHost) consumeHits(hits); });
   window.MP.subscribeDeaths(handleDeaths);
 }
@@ -2304,9 +2306,12 @@ function onPlayersChanged(others, allUids){
   if (amHost && !wasHost) becomeHost();
 }
 function becomeHost(){
-  // adopt whatever mobs we're already mirroring; if we have none, we're a fresh/lone host — seed
+  // adopt whatever mobs we're already mirroring under a previous host; if we have none, we're a
+  // fresh/lone host — seed a new world. Either way, immediately (over)write the published set so
+  // any stale world/mobs left over from a past session is replaced, not adopted by newcomers.
   if (mobs.length === 0) seedMobs();
   for (const m of mobs) ensureNetId(m);
+  publishWorldMobs();
 }
 
 // only true progress is saved — not ephemeral world/session state like position, live mobs,
