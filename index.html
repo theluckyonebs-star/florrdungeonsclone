@@ -524,6 +524,7 @@ function quickSwapSlot(i){
     loadouts[1][i] = a;
     rebuildInstances();
     if (openPanelName) renderPanel();
+    scheduleSave();
   }, FLY_SWAP_DELAY);
 }
 
@@ -585,6 +586,7 @@ function collectPickup(p){
   const k = essenceKey(p.rarity);
   essence[k] = (essence[k]||0)+(p.count||1);
   if (openPanelName==='essence') renderPanel();
+  scheduleSave();
 }
 function grantDevMode(){
   Object.keys(PETAL_DEFS).filter(p=>p!=='basic').forEach(petal=>{
@@ -600,6 +602,7 @@ function grantDevMode(){
     essence[k] = (essence[k]||0) + 1000;
   });
   if (openPanelName) renderPanel();
+  scheduleSave();
 }
 window.grantDevMode = grantDevMode;
 // mirror of grantDevMode — subtracts exactly what that grants (floored at 0), so repeated
@@ -617,6 +620,7 @@ function undoDevMode(){
     essence[k] = Math.max(0, (essence[k]||0) - 1000);
   });
   if (openPanelName) renderPanel();
+  scheduleSave();
 }
 window.undoDevMode = undoDevMode;
 
@@ -1743,6 +1747,7 @@ function dropOnSlot(e, li, i){
     loadouts[li][i] = { petal, tier };
     if (li===activeLoadout) rebuildInstances();
     renderPanel();
+    scheduleSave();
   } else if (dragData.type==='slot'){
     const {li:fli, i:fi} = dragData;
     dragData = null;
@@ -1759,6 +1764,7 @@ function dropOnSlot(e, li, i){
       loadouts[fli][fi] = a;
       if (li===activeLoadout || fli===activeLoadout) rebuildInstances();
       renderPanel();
+      scheduleSave();
     }, FLY_SWAP_DELAY);
   } else {
     dragData = null;
@@ -1778,6 +1784,7 @@ function dropOnInventory(e){
   loadouts[li][i] = { petal:'basic', tier:1 };
   if (li===activeLoadout) rebuildInstances();
   renderPanel();
+  scheduleSave();
 }
 // a stray/unrecognized petal key in `inventory` (e.g. from an old save format, or a petal
 // that no longer exists) used to throw partway through rendering the panel — which left the
@@ -2480,6 +2487,17 @@ function applySave(save){
 function saveProgress(){
   if (!authed || !window.MP) return;
   window.MP.saveProgress(buildSavePayload());
+}
+// debounced save — call this after any inventory/essence-changing event (picking up essence,
+// equipping/unequipping, dev-mode grants) instead of saving immediately on every single one.
+// Collapses a burst of rapid changes (e.g. a killing spree dropping essence every second) into
+// one write shortly after, so real progress can't be lost to a crash/forced-close without
+// spamming Firebase with a write per pickup. The 15s interval, visibilitychange, and beforeunload
+// hooks below remain as backstops in case this timer never gets to fire.
+let saveDebounceT = null;
+function scheduleSave(){
+  if (saveDebounceT) clearTimeout(saveDebounceT);
+  saveDebounceT = setTimeout(()=>{ saveDebounceT = null; saveProgress(); }, 1500);
 }
 
 // the compact live blob other players receive to render our flower + petals. Petals are sent
