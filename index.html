@@ -984,7 +984,14 @@ function update(dt){
     // latest position the host broadcast, and ease its health bar / hurt flash locally.
     for (const m of mobs){
       if (m.dying) continue;
-      if (m.tx!=null){ m.x += (m.tx-m.x)*clamp(14*dt,0,1); m.y += (m.ty-m.y)*clamp(14*dt,0,1); }
+      if (m.tx!=null){
+        const dx = m.tx-m.x, dy = m.ty-m.y;
+        m.x += dx*clamp(14*dt,0,1); m.y += dy*clamp(14*dt,0,1);
+        // most mob draw functions orient themselves off atan2(vy,vx) — mirrored mobs never run
+        // real physics, so without this their facing angle would freeze at whatever it was when
+        // first spawned. Derive a facing vector from the direction we're actually moving instead.
+        if (len(dx,dy) > 0.5){ m.vx = dx; m.vy = dy; }
+      }
       if (m.hurtFlash>0) m.hurtFlash -= dt;
       if (m.type==='spider') m.legPhase += dt*4;
       m.dispHealth += (m.health - m.dispHealth) * clamp(HP_EASE*dt, 0, 1);
@@ -1185,28 +1192,34 @@ function drawRemotePlayers(){
   const r = 26;
   for (const id in remotePlayers){
     const rp = remotePlayers[id];
-    if (!rp || rp.x==null) continue;
+    if (!rp || rp.x==null || rp.d) continue;   // rp.d: dead — don't render them for anyone
+    const disp = remoteDisplay[id]; if (!disp) continue;
+    const dx = disp.x, dy = disp.y;
     // skip anyone well off-screen — no point drawing them
-    if (rp.x < cam.x-120 || rp.x > cam.x+W+120 || rp.y < cam.y-120 || rp.y > cam.y+H+120) continue;
+    if (dx < cam.x-120 || dx > cam.x+W+120 || dy < cam.y-120 || dy > cam.y+H+120) continue;
 
-    if (Array.isArray(rp.pts)) for (const p of rp.pts) drawPetalIcon(ctx, p[2], p[0], p[1], 9, p[3]);
+    // petals arrive as absolute world positions computed against the sender's real (non-
+    // smoothed) position — offset them by the same amount we smoothed the flower by, so they
+    // stay visually attached instead of lagging behind/ahead of the interpolated body
+    const ox = dx-rp.x, oy = dy-rp.y;
+    if (Array.isArray(rp.pts)) for (const p of rp.pts) drawPetalIcon(ctx, p[2], p[0]+ox, p[1]+oy, 9, p[3]);
 
-    ctx.beginPath(); ctx.arc(rp.x, rp.y, r, 0, TAU);
+    ctx.beginPath(); ctx.arc(dx, dy, r, 0, TAU);
     ctx.fillStyle = rp.hf ? '#ff8a8a' : '#ffe25a';
     ctx.fill();
     ctx.lineWidth = 3; ctx.strokeStyle = '#d9b400'; ctx.stroke();
     ctx.fillStyle = '#3a2e00';
-    ctx.beginPath(); ctx.arc(rp.x-8, rp.y-4, 3.4, 0, TAU); ctx.fill();
-    ctx.beginPath(); ctx.arc(rp.x+8, rp.y-4, 3.4, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.arc(dx-8, dy-4, 3.4, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.arc(dx+8, dy-4, 3.4, 0, TAU); ctx.fill();
     ctx.beginPath(); ctx.lineWidth=2.4; ctx.strokeStyle='#3a2e00';
-    ctx.arc(rp.x, rp.y+3, 7, 0.15*Math.PI, 0.85*Math.PI); ctx.stroke();
+    ctx.arc(dx, dy+3, 7, 0.15*Math.PI, 0.85*Math.PI); ctx.stroke();
 
-    if (rp.mh) entityHealthBar(rp.x, rp.y - r - 14, r*2, clamp(rp.h/rp.mh,0,1), '#67e36a');
+    if (rp.mh) entityHealthBar(dx, dy - r - 14, r*2, clamp(rp.h/rp.mh,0,1), '#67e36a');
 
     ctx.font = '700 13px "Segoe UI", sans-serif'; ctx.textAlign='center'; ctx.textBaseline='bottom';
     const label = `${rp.n||'Player'} · Lv ${rp.lv||1}`;
-    ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.strokeText(label, rp.x, rp.y - r - 22);
-    ctx.fillStyle = '#fff'; ctx.fillText(label, rp.x, rp.y - r - 22);
+    ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.strokeText(label, dx, dy - r - 22);
+    ctx.fillStyle = '#fff'; ctx.fillText(label, dx, dy - r - 22);
   }
 }
 
@@ -2197,6 +2210,21 @@ let remotePlayers = {};    // uid -> other players' live presence, refreshed by 
 let amHost = false;
 let hostId = null;
 let worldSubsAttached = false;
+// smoothed on-screen position for each remote player, since presence only arrives ~9x/sec —
+// drawing rp.x/rp.y directly makes other players visibly jump between updates
+const remoteDisplay = {};
+function updateRemoteDisplay(dt){
+  const seen = new Set();
+  for (const id in remotePlayers){
+    const rp = remotePlayers[id];
+    if (!rp || rp.x==null || rp.d) continue;   // rp.d: this player is dead, don't track/draw them
+    seen.add(id);
+    let disp = remoteDisplay[id];
+    if (!disp){ disp = remoteDisplay[id] = { x: rp.x, y: rp.y }; }   // snap in on first sight
+    else { disp.x += (rp.x-disp.x)*clamp(12*dt,0,1); disp.y += (rp.y-disp.y)*clamp(12*dt,0,1); }
+  }
+  for (const id in remoteDisplay) if (!seen.has(id)) delete remoteDisplay[id];
+}
 const TYPE_LIST = Object.keys(MOB_DEFS);
 const TYPE_IDX = {}; TYPE_LIST.forEach((t,i)=>TYPE_IDX[t]=i);
 let worldSeq = 0;                    // host's rolling mob-id counter
@@ -2363,6 +2391,9 @@ function saveProgress(){
 // as absolute world positions (visible ones only) so remotes don't have to replicate our orbit
 // math — bulletproof, and tiny for a handful of players.
 function getPresenceState(){
+  // dead: broadcast just enough to say "I'm dead" — other clients hide our flower entirely
+  // until we respawn, instead of leaving a corpse standing around at its last position
+  if (dead) return { n: myName || 'Player', d: 1 };
   const pts = [];
   for (const inst of player.instances){
     if (inst.broken || inst.eating) continue;
@@ -2458,14 +2489,26 @@ rebuildInstances();
 // (or adopts the existing mobs) once logged in; see becomeHost()
 
 let last = performance.now();
-function loop(now){
+function frameTick(skipDraw){
+  const now = performance.now();
   let dt = (now - last)/1000; last = now;
-  dt = Math.min(dt, 0.05);
+  dt = Math.min(dt, 0.25);
   update(dt);
-  draw();
+  updateRemoteDisplay(dt);
+  if (!skipDraw) draw();
+}
+function loop(){
+  frameTick(false);
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
+// browsers throttle requestAnimationFrame to near-zero (often fully stopping it) once a tab is
+// backgrounded or minimized. Left alone, that freezes: (a) the whole shared world for everyone
+// if the HOST'S tab isn't focused, since mob simulation only runs there, and (b) any non-host
+// player's own presence broadcast, making them appear frozen to everyone else. A plain
+// setInterval keeps getting scheduled (throttled to roughly once a second while hidden, but not
+// stopped outright) so the game keeps ticking at a reduced rate instead of freezing entirely.
+setInterval(()=>{ if (document.hidden) frameTick(true); }, 250);
 
 // sign-in is disabled for now — skip showing the login screen and skip session resume/auto-save
 // entirely (re-enable by restoring the block this replaced)
