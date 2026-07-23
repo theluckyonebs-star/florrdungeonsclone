@@ -674,18 +674,19 @@ function updateSpawns(dt){
     if (Math.random() < 0.5){
       const p = randInChunk(cx,cy);
       if (len(p.x-player.x, p.y-player.y) < SPAWN_SAFE) continue;
-      spawnRandomMob(p.x, p.y);
+      ensureNetId(spawnRandomMob(p.x, p.y));
     }
   }
 }
 function seedMobs(){
   mobs.length = 0;
+  for (const k in mobById) delete mobById[k];
   const cols = Math.ceil(ARENA.w/CHUNK), rows = Math.ceil(ARENA.h/CHUNK);
   for (let cx=0;cx<cols;cx++) for (let cy=0;cy<rows;cy++){
     for (let n=0;n<CHUNK_CAP;n++){
       const p = randInChunk(cx,cy);
       if (len(p.x-player.x, p.y-player.y) < SPAWN_SAFE) continue;
-      spawnRandomMob(p.x, p.y);
+      ensureNetId(spawnRandomMob(p.x, p.y));
     }
   }
 }
@@ -736,7 +737,8 @@ function wanderStep(m, dt){
 }
 function chaseStep(m, dt, swerve){
   const spd = m.speed * (m.slowT>0 ? m.slowMult : 1);
-  const dx = player.x-m.x, dy = player.y-m.y, d = len(dx,dy)||1;
+  const np = nearestPlayerPos(m.x, m.y);
+  const dx = np.x-m.x, dy = np.y-m.y, d = len(dx,dy)||1;
   let ang = Math.atan2(dy,dx);
   if (swerve) ang += Math.sin(performance.now()/1000*5 + m.wanderAng)*0.5;
   const tx = Math.cos(ang)*spd, ty = Math.sin(ang)*spd;
@@ -759,7 +761,7 @@ function updateMob(m, dt){
     case 'neutral': m.aggro ? chaseStep(m, dt, false) : wanderStep(m, dt); break;
     case 'neutral-swerve': m.aggro ? chaseStep(m, dt, true) : wanderStep(m, dt); break;
     case 'hostile': {
-      const d = len(player.x-m.x, player.y-m.y);
+      const d = nearestPlayerPos(m.x, m.y).d;
       d < m.aggroRange ? chaseStep(m, dt, false) : wanderStep(m, dt);
       break;
     }
@@ -884,9 +886,16 @@ function updateInstances(dt){
 function dealPetalDamage(inst, def, m, dx, dy, d){
   const dmg = pscale(def,'damage',inst.petal,inst.tier);
   if (dmg>0){
-    damageMob(m, dmg, dx, dy, d, def.push||0);
-    if (def.slowMult){ m.slowMult=scaledSlowMult(def,inst.petal,inst.tier); m.slowT=Math.max(m.slowT, scaledSlowDur(def,inst.petal,inst.tier)); }
-    if (shouldAggroOnHit(m)) m.aggro = true;
+    if (amHost){
+      // host owns the mobs — apply damage directly
+      damageMob(m, dmg, dx, dy, d, def.push||0);
+      if (def.slowMult){ m.slowMult=scaledSlowMult(def,inst.petal,inst.tier); m.slowT=Math.max(m.slowT, scaledSlowDur(def,inst.petal,inst.tier)); }
+      if (shouldAggroOnHit(m)) m.aggro = true;
+    } else if (m.netId){
+      // non-host — the host is authoritative, so just report the hit and let it apply
+      window.MP.sendHit(m.netId, dmg);
+    }
+    noteMyHit(m.netId);   // remember I damaged this mob, so I get its loot when it dies
   }
   inst.health -= m.petalDmg;
   if (inst.health<=0) breakInstance(inst, def);
@@ -957,18 +966,30 @@ function update(dt){
 
   updateInstances(dt);
 
-  // mobs more than one zone away from every player are "frozen": left in place (kept for
-  // consistency) but not simulated — no AI, no physics — which cuts the per-frame cost and,
-  // in multiplayer, the amount of mob state the host has to broadcast.
-  const activeZones = activeZoneSet();
-  const active = [];
-  for (const m of mobs){
-    if (m.dying) continue;
-    if (activeZones.has(zoneAt(m.x).idx)){ updateMob(m, dt); active.push(m); }
+  if (amHost){
+    // host simulates the mobs. Mobs more than one zone away from every player are "frozen":
+    // left in place (kept for consistency) but not simulated — no AI, no physics — which cuts
+    // the per-frame cost and the amount of mob state we have to broadcast.
+    const activeZones = activeZoneSet();
+    const active = [];
+    for (const m of mobs){
+      if (m.dying) continue;
+      if (activeZones.has(zoneAt(m.x).idx)){ updateMob(m, dt); active.push(m); }
+    }
+    for (let i=0;i<active.length;i++)
+      for (let j=i+1;j<active.length;j++)
+        resolveOverlap(active[i], active[j], active[i].mass, active[j].mass);
+  } else {
+    // non-host: we don't simulate — just smoothly interpolate each mirrored mob toward the
+    // latest position the host broadcast, and ease its health bar / hurt flash locally.
+    for (const m of mobs){
+      if (m.dying) continue;
+      if (m.tx!=null){ m.x += (m.tx-m.x)*clamp(14*dt,0,1); m.y += (m.ty-m.y)*clamp(14*dt,0,1); }
+      if (m.hurtFlash>0) m.hurtFlash -= dt;
+      if (m.type==='spider') m.legPhase += dt*4;
+      m.dispHealth += (m.health - m.dispHealth) * clamp(HP_EASE*dt, 0, 1);
+    }
   }
-  for (let i=0;i<active.length;i++)
-    for (let j=i+1;j<active.length;j++)
-      resolveOverlap(active[i], active[j], active[i].mass, active[j].mass);
 
   for (const inst of player.instances){
     if (inst.broken || inst.eating) continue;
@@ -1006,27 +1027,31 @@ function update(dt){
 
   for (let i=mobs.length-1;i>=0;i--){
     const m = mobs[i];
-    if (m.dying){
+    if (m.dying){   // death animation runs on every client (host and mirrors alike)
       m.dieT += dt;
-      if (m.dieT >= DEATH_ANIM_DUR) mobs.splice(i,1);
+      if (m.dieT >= DEATH_ANIM_DUR){ if (m.netId) delete mobById[m.netId]; mobs.splice(i,1); }
       continue;
     }
+    if (!amHost) continue;   // only the host decides despawns and deaths
     // anti-cheese: luring a mob more than one zone away from where it spawned despawns it
     // instantly with no drops or XP, instead of letting it be dragged into an easier zone to farm
     if (Math.abs(zoneAt(m.x).idx - m.spawnZoneIdx) > 1){
+      if (m.netId) delete mobById[m.netId];
       mobs.splice(i,1);
       continue;
     }
     if (m.health<=0){
-      const wasNew = !killedMobs.has(m.type+'|'+m.level);
-      killedMobs.add(m.type+'|'+m.level);
-      rollMobDrops(m);
-      grantXp(xpForKill(m.type, m.level));
+      // announce the death; each client that damaged it grants ITSELF loot + XP (see handleDeaths)
       m.dying = true; m.dieT = 0;
-      if (wasNew && openPanelName==='mob') renderPanel();
+      window.MP.publishDeath(m.netId, {ty:TYPE_IDX[m.type], lv:m.level, x:Math.round(m.x), y:Math.round(m.y)});
     }
   }
-  updateSpawns(dt);
+  if (amHost){
+    updateSpawns(dt);
+    // broadcast the mob set on a fixed cadence, independent of frame rate
+    worldPubT -= dt;
+    if (worldPubT <= 0){ worldPubT = WORLD_PUB_PERIOD; publishWorldMobs(); }
+  }
   updatePickups(dt);
 
   cam.x = clamp(player.x - W/2, 0, ARENA.w - W);
@@ -2163,6 +2188,127 @@ let authed = false;        // gated on Firebase login — the world stays frozen
 let myName = null;         // our display username (shown to other players)
 let remotePlayers = {};    // uid -> other players' live presence, refreshed by subscribePlayers
 
+/* ── SHARED WORLD (host-authoritative mobs) ─────────────────────────────────────────────────
+   The player with the lowest uid online is the "host": their browser simulates all mobs and
+   broadcasts them. Everyone else mirrors that set and reports their petal hits back; the host
+   applies damage and announces deaths, which each client turns into its own XP + loot (loot
+   stays per-player, so nobody steals anybody's drops). If the host leaves, the next-lowest uid
+   adopts the mobs it was already mirroring and takes over. */
+let amHost = false;
+let hostId = null;
+let worldSubsAttached = false;
+const TYPE_LIST = Object.keys(MOB_DEFS);
+const TYPE_IDX = {}; TYPE_LIST.forEach((t,i)=>TYPE_IDX[t]=i);
+let worldSeq = 0;                    // host's rolling mob-id counter
+const mobById = {};                  // netId -> mob object (mirror lookup / cleanup)
+const myHits = new Map();            // netId -> last time I damaged it (for loot attribution)
+const processedDeaths = new Set();   // death-event ids already handled
+let worldPubT = 0;
+const WORLD_PUB_PERIOD = 1/7;        // host broadcasts the mob set ~7x/sec
+const MY_HIT_TTL = 6000;            // I earn a mob's loot if I hit it within this long before it died
+
+function ensureNetId(m){ if (m && !m.netId){ m.netId = 'm'+(worldSeq++); mobById[m.netId] = m; } }
+function noteMyHit(netId){ if (netId) myHits.set(netId, performance.now()); }
+// closest player (local or remote) to a point — so host mobs chase whoever's nearest, not just me
+function nearestPlayerPos(x,y){
+  let bx=player.x, by=player.y, bd=len(player.x-x, player.y-y);
+  for (const id in remotePlayers){
+    const rp = remotePlayers[id];
+    if (rp && rp.x!=null){ const dd = len(rp.x-x, rp.y-y); if (dd<bd){ bd=dd; bx=rp.x; by=rp.y; } }
+  }
+  return { x:bx, y:by, d:bd };
+}
+
+// host: pack the near-player mobs into a compact broadcast (frozen/far mobs aren't synced)
+function publishWorldMobs(){
+  const az = activeZoneSet();
+  const obj = {};
+  for (const m of mobs){
+    if (m.dying || !m.netId) continue;
+    if (!az.has(zoneAt(m.x).idx)) continue;
+    obj[m.netId] = [TYPE_IDX[m.type], m.level, Math.round(m.x), Math.round(m.y),
+                    Math.round(m.health), Math.round((((m.facing||0)%TAU)+TAU)%TAU/TAU*255)];
+  }
+  window.MP.publishMobs(obj);
+}
+// non-host: fold a broadcast snapshot into the local mirror
+function ingestWorldMobs(obj){
+  const seen = new Set();
+  for (const id in obj){
+    const a = obj[id];
+    const type=TYPE_LIST[a[0]], level=a[1], x=a[2], y=a[3], hp=a[4], f8=a[5];
+    seen.add(id);
+    let m = mobById[id];
+    if (!m){
+      m = spawnMob(type, level, x, y);   // full mob object (radius, colors, mass, rock verts…)
+      m.netId = id; m.mirror = true; m.dispHealth = hp; mobById[id] = m;
+    }
+    m.tx = x; m.ty = y;                  // interpolation targets
+    m.health = hp; m.facing = f8/255*TAU; m.netSeen = performance.now();
+  }
+  // drop mirrored mobs the host stopped broadcasting (unless they're mid death-animation)
+  for (let i=mobs.length-1;i>=0;i--){
+    const m = mobs[i];
+    if (m.netId && !seen.has(m.netId) && !m.dying){ delete mobById[m.netId]; mobs.splice(i,1); }
+  }
+}
+// host: apply queued hits from non-hosts, then clear them
+function consumeHits(hits){
+  const done = [];
+  for (const key in hits){
+    const h = hits[key]; done.push(key);
+    const m = mobById[h.m];
+    if (m && !m.dying){
+      const src = remotePlayers[h.from];
+      const dx = m.x - (src && src.x!=null ? src.x : m.x), dy = m.y - (src && src.y!=null ? src.y : m.y);
+      damageMob(m, h.d, dx, dy, len(dx,dy)||1, 0);
+      if (shouldAggroOnHit(m)) m.aggro = true;
+    }
+  }
+  window.MP.clearHits(done);
+}
+// everyone: react to a death — grant my own loot/XP if I hit it, and (as a mirror) animate it
+function handleDeaths(deaths){
+  const now = performance.now();
+  for (const id in deaths){
+    if (processedDeaths.has(id)) continue;
+    processedDeaths.add(id);
+    const d = deaths[id];
+    const hitAt = myHits.get(id);
+    if (hitAt != null && now - hitAt < MY_HIT_TTL){
+      myHits.delete(id);
+      const type = TYPE_LIST[d.ty], level = d.lv;
+      const wasNew = !killedMobs.has(type+'|'+level);
+      killedMobs.add(type+'|'+level);
+      rollMobDrops({ type, level, x:d.x, y:d.y });
+      grantXp(xpForKill(type, level));
+      if (wasNew && openPanelName==='mob') renderPanel();
+    }
+    if (!amHost){ const m = mobById[id]; if (m && !m.dying){ m.dying = true; m.dieT = 0; } }
+  }
+  if (processedDeaths.size > 400) processedDeaths.clear();
+}
+
+function attachWorldSubs(){
+  if (worldSubsAttached) return; worldSubsAttached = true;
+  window.MP.subscribeMobs(obj => { if (!amHost) ingestWorldMobs(obj); });
+  window.MP.subscribeHits(hits => { if (amHost) consumeHits(hits); });
+  window.MP.subscribeDeaths(handleDeaths);
+}
+function onPlayersChanged(others, allUids){
+  remotePlayers = others;
+  const sorted = (allUids||[]).slice().sort();
+  hostId = sorted[0] || window.MP.uid;
+  const wasHost = amHost;
+  amHost = (hostId === window.MP.uid);
+  if (amHost && !wasHost) becomeHost();
+}
+function becomeHost(){
+  // adopt whatever mobs we're already mirroring; if we have none, we're a fresh/lone host — seed
+  if (mobs.length === 0) seedMobs();
+  for (const m of mobs) ensureNetId(m);
+}
+
 // only true progress is saved — not ephemeral world/session state like position, live mobs,
 // pickups, or which panel is open
 function buildSavePayload(){
@@ -2232,8 +2378,9 @@ async function handleAuth(user){
   try { applySave(await window.MP.loadSave()); }
   catch(e){ /* brand-new account or transient read hiccup — just start from defaults */ }
   enterGameUI();
+  attachWorldSubs();
   window.MP.startPresence(getPresenceState);
-  window.MP.subscribePlayers(others => { remotePlayers = others; });
+  window.MP.subscribePlayers(onPlayersChanged);
 }
 
 // turn Firebase's error codes into something readable in the login box
@@ -2286,7 +2433,8 @@ addEventListener('beforeunload', saveProgress);
    ══════════════════════════════════════════ */
 loadouts = [defaultLoadout(), defaultLoadout()];
 rebuildInstances();
-seedMobs();
+// mobs are no longer seeded at startup — the world is shared, so whoever becomes host seeds
+// (or adopts the existing mobs) once logged in; see becomeHost()
 
 let last = performance.now();
 function loop(now){

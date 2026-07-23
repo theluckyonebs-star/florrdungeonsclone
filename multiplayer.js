@@ -21,7 +21,7 @@ import {
   createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut,
 } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
 import {
-  getDatabase, ref, set, get, onValue, onDisconnect, remove,
+  getDatabase, ref, set, get, onValue, onDisconnect, remove, push, update,
 } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-database.js";
 
 /* ── your Firebase project config ────────────────────────────────────────────────────────
@@ -127,15 +127,43 @@ const MP = {
     }, 1000 / hz);
   },
 
-  // subscribe to everyone's presence; cb gets a plain object of OTHER players (self excluded)
+  // subscribe to everyone's presence; cb(others, allUids) — `others` excludes self (for
+  // rendering), `allUids` includes everyone (for host election)
   subscribePlayers(cb) {
     onValue(ref(db, 'players'), (snap) => {
       const all = snap.val() || {};
       const others = {};
       for (const k in all) { if (k !== uid) others[k] = all[k]; }
-      cb(others);
+      cb(others, Object.keys(all));
     });
   },
+
+  /* ── shared world (host-authoritative mobs) ──────────────────────────────────────────────
+     One player (chosen by the game as the lowest uid online) is the "host". It simulates the
+     mobs and publishes them here; everyone else mirrors them. Non-hosts report their petal
+     hits, which the host applies; the host announces deaths, which everyone reacts to. */
+
+  // host overwrites the whole active-mob set each tick
+  publishMobs(obj) { if (!uid) return; set(ref(db, 'world/mobs'), obj).catch(() => {}); },
+  subscribeMobs(cb) { onValue(ref(db, 'world/mobs'), (s) => cb(s.val() || {})); },
+  // best-effort: if the host vanishes, its published mob set is left for the next host to adopt
+  // (a fresh lone host reseeds instead, so the world still recovers)
+
+  // non-host → host: "my petal hit mob <id> for <dmg>"
+  sendHit(mobId, dmg) { if (!uid) return; push(ref(db, 'world/hits'), { m: mobId, d: dmg, from: uid }).catch(() => {}); },
+  subscribeHits(cb) { onValue(ref(db, 'world/hits'), (s) => cb(s.val() || {})); },
+  clearHits(keys) {
+    if (!keys || !keys.length) return;
+    const u = {}; for (const k of keys) u['world/hits/' + k] = null;
+    update(ref(db), u).catch(() => {});
+  },
+
+  // host → everyone: "mob <id> died" (auto-expires so the list can't grow forever)
+  publishDeath(id, info) {
+    set(ref(db, 'world/deaths/' + id), info).catch(() => {});
+    setTimeout(() => remove(ref(db, 'world/deaths/' + id)).catch(() => {}), 4000);
+  },
+  subscribeDeaths(cb) { onValue(ref(db, 'world/deaths'), (s) => cb(s.val() || {})); },
 };
 
 window.MP = MP;
