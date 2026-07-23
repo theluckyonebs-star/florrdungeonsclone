@@ -426,7 +426,7 @@ function updateLevelHud(){
 function makePlayer(){
   const maxHP = maxHealthForLevel(playerLevel);
   return {
-    x: ARENA.w/6, y: ARENA.h/2, r: 26,   // spawn inside the Easy zone, not the Medium zone at map-center
+    x: (ARENA.w/ZONES.length)*0.3, y: ARENA.h/2, r: 26,   // spawn well into the left of the Garden zone, away from the Desert border
     mvx:0, mvy:0, kvx:0, kvy:0,
     maxSpeed:200, accel:12, decel:10, kFriction:9, knockback:0,
     maxHealth:maxHP, health:maxHP, dispHealth:maxHP,
@@ -618,14 +618,44 @@ function spawnMob(typeKey, level, x, y){
   if (typeKey==='rock'){ m.spin=rand(0,TAU); m.verts=rockShape(); }
   mobs.push(m); return m;
 }
+// is (x,y) within `range` of the local player or any visible remote player?
+function tooCloseToAnyPlayer(x, y, range){
+  if (len(x-player.x, y-player.y) < range) return true;
+  for (const id in remotePlayers){
+    const rp = remotePlayers[id];
+    if (rp && rp.x!=null && len(x-rp.x, y-rp.y) < range) return true;
+  }
+  return false;
+}
+// the set of zone indices that are "live" — each player's own zone plus its immediate
+// neighbours. Mobs outside this set are frozen (see the main update loop).
+function activeZoneSet(){
+  const zones = new Set();
+  const add = zi => { zones.add(zi-1); zones.add(zi); zones.add(zi+1); };
+  add(zoneAt(player.x).idx);
+  for (const id in remotePlayers){
+    const rp = remotePlayers[id];
+    if (rp && rp.x!=null) add(zoneAt(rp.x).idx);
+  }
+  return zones;
+}
 function spawnRandomMob(x,y){
   const zone  = zoneAt(x);
   const type  = pickWeighted(Object.keys(MOB_DEFS).map(k=>({ key:k, weight: zoneMobWeight(MOB_DEFS[k], zone.idx) })));
   const level = zone.levels[Math.floor(Math.random()*zone.levels.length)];
+  // hostile mobs must never appear already within their aggro range of a player — that would
+  // yank someone into a chase the instant the mob pops in. Skip the spawn if it would.
+  const def = MOB_DEFS[type.key];
+  if (def.behavior === 'hostile'){
+    const range = (def.aggroRange||0) * aggroRangeScale(level);
+    if (tooCloseToAnyPlayer(x, y, range)) return null;
+  }
   return spawnMob(type.key, level, x, y);
 }
 
-const CHUNK = 650, CHUNK_CAP = 3, SPAWN_TICK = 0.4, SPAWN_SAFE = 360;
+// CHUNK_CAP is the max mobs per chunk — lowered from 3 to 2 to thin overall density (fewer
+// mobs to simulate and, in multiplayer, fewer to sync across the network)
+const CHUNK = 650, CHUNK_CAP = 2, SPAWN_TICK = 0.4, SPAWN_SAFE = 360;
 let spawnTimer = 0;
 function chunkCounts(){
   const c = {};
@@ -927,13 +957,18 @@ function update(dt){
 
   updateInstances(dt);
 
-  for (const m of mobs){ if (!m.dying) updateMob(m, dt); }
-
-  for (let i=0;i<mobs.length;i++)
-    for (let j=i+1;j<mobs.length;j++){
-      if (mobs[i].dying || mobs[j].dying) continue;
-      resolveOverlap(mobs[i], mobs[j], mobs[i].mass, mobs[j].mass);
-    }
+  // mobs more than one zone away from every player are "frozen": left in place (kept for
+  // consistency) but not simulated — no AI, no physics — which cuts the per-frame cost and,
+  // in multiplayer, the amount of mob state the host has to broadcast.
+  const activeZones = activeZoneSet();
+  const active = [];
+  for (const m of mobs){
+    if (m.dying) continue;
+    if (activeZones.has(zoneAt(m.x).idx)){ updateMob(m, dt); active.push(m); }
+  }
+  for (let i=0;i<active.length;i++)
+    for (let j=i+1;j<active.length;j++)
+      resolveOverlap(active[i], active[j], active[i].mass, active[j].mass);
 
   for (const inst of player.instances){
     if (inst.broken || inst.eating) continue;
