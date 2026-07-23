@@ -972,16 +972,21 @@ function updateWorld(dt){
       for (let j=i+1;j<active.length;j++)
         resolveOverlap(active[i], active[j], active[i].mass, active[j].mass);
   } else {
-    // non-host: we don't simulate — dead-reckon each mirrored mob using the velocity estimated
-    // in ingestWorldMobs (glides continuously instead of lurching point-to-point at the
-    // broadcast rate), with a gentle continuous pull back toward the last known authoritative
-    // position so any drift/estimation error corrects itself smoothly instead of snapping.
+    // non-host: we don't simulate — every frame, recompute where the mob SHOULD be right now
+    // (last broadcast position extrapolated forward by the estimated velocity × time actually
+    // elapsed since that broadcast) and ease toward that continuously-advancing prediction.
+    // A previous version dead-reckoned m.x forward each frame and then pulled it back toward
+    // the stale broadcast point every frame too — those two fought each other, and since the
+    // pull-back target never advanced between broadcasts, it acted as a constant drag that grew
+    // with mob speed. That left fast mobs (beetles/spiders) meaningfully behind their real
+    // position for non-host clients — enough that local collision math (which is what gates
+    // whether a non-host's petal registers a hit at all) would intermittently miss or land late.
     for (const m of mobs){
       if (m.dying) continue;
       if (m.tx!=null){
-        m.x += (m.netVX||0)*dt; m.y += (m.netVY||0)*dt;
-        const cdx = m.tx-m.x, cdy = m.ty-m.y;
-        m.x += cdx*clamp(2*dt,0,1); m.y += cdy*clamp(2*dt,0,1);
+        const elapsed = Math.min(0.5, (performance.now()-m.netSeen)/1000);
+        const px = m.tx + (m.netVX||0)*elapsed, py = m.ty + (m.netVY||0)*elapsed;
+        m.x += (px-m.x)*clamp(14*dt,0,1); m.y += (py-m.y)*clamp(14*dt,0,1);
         // most mob draw functions orient themselves off atan2(vy,vx) — mirrored mobs never run
         // real physics, so without this their facing angle would freeze at whatever it was when
         // first spawned. Ease the facing vector toward the actual movement direction (rather
