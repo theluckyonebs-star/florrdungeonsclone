@@ -2200,6 +2200,11 @@ let worldSubsAttached = false;
 const TYPE_LIST = Object.keys(MOB_DEFS);
 const TYPE_IDX = {}; TYPE_LIST.forEach((t,i)=>TYPE_IDX[t]=i);
 let worldSeq = 0;                    // host's rolling mob-id counter
+// a per-page-load prefix makes every mob id globally unique, so ids minted by one host session
+// can never collide with ids still sitting in another client's mirror after a reload or a host
+// handoff (id collisions were causing mirrored mobs to teleport, keep a stale type, and show
+// wrong health)
+const NET_PREFIX = 'm' + Math.random().toString(36).slice(2,8) + Math.random().toString(36).slice(2,6) + '_';
 const mobById = {};                  // netId -> mob object (mirror lookup / cleanup)
 const myHits = new Map();            // netId -> last time I damaged it (for loot attribution)
 const processedDeaths = new Set();   // death-event ids already handled
@@ -2207,7 +2212,13 @@ let worldPubT = 0;
 const WORLD_PUB_PERIOD = 1/7;        // host broadcasts the mob set ~7x/sec
 const MY_HIT_TTL = 6000;            // I earn a mob's loot if I hit it within this long before it died
 
-function ensureNetId(m){ if (m && !m.netId){ m.netId = 'm'+(worldSeq++); mobById[m.netId] = m; } }
+function ensureNetId(m){ if (m && !m.netId){ m.netId = NET_PREFIX+(worldSeq++); mobById[m.netId] = m; } }
+// drop every mirrored mob — used when the host changes, so ids from the previous host's world
+// can't linger and collide with the new host's broadcast
+function clearMirror(){
+  for (let i=mobs.length-1;i>=0;i--){ if (mobs[i].netId) mobs.splice(i,1); }
+  for (const k in mobById) delete mobById[k];
+}
 function noteMyHit(netId){ if (netId) myHits.set(netId, performance.now()); }
 // closest player (local or remote) to a point — so host mobs chase whoever's nearest, not just me
 function nearestPlayerPos(x,y){
@@ -2300,10 +2311,15 @@ function attachWorldSubs(){
 function onPlayersChanged(others, allUids){
   remotePlayers = others;
   const sorted = (allUids||[]).slice().sort();
-  hostId = sorted[0] || window.MP.uid;
+  const newHost = sorted[0] || window.MP.uid;
+  const hostChanged = newHost !== hostId;
+  hostId = newHost;
   const wasHost = amHost;
   amHost = (hostId === window.MP.uid);
   if (amHost && !wasHost) becomeHost();
+  // if the host identity changed and we're a mirror, wipe the old host's mobs so their ids
+  // can't collide with the new host's broadcast (belt-and-suspenders alongside unique ids)
+  else if (!amHost && hostChanged) clearMirror();
 }
 function becomeHost(){
   // adopt whatever mobs we're already mirroring under a previous host; if we have none, we're a
