@@ -1739,13 +1739,25 @@ function dropOnInventory(e){
   if (li===activeLoadout) rebuildInstances();
   renderPanel();
 }
+// a stray/unrecognized petal key in `inventory` (e.g. from an old save format, or a petal
+// that no longer exists) used to throw partway through rendering the panel — which left the
+// DOM in whatever state it was in before the crash, looking like the panel had collapsed to
+// just its header bar. Every lookup below now goes through this guard instead of assuming
+// PETAL_DEFS[petal] exists; unrecognized keys are dropped from inventory so this self-heals.
+function validInventoryKeys(){
+  return Object.keys(inventory).filter(k=>{
+    if (inventory[k]<=0) return false;
+    const petal = k.split('|')[0];
+    if (!PETAL_DEFS[petal]){ delete inventory[k]; return false; }
+    return true;
+  });
+}
 function renderInventoryPanel(){
   const matches = petal => PETAL_DEFS[petal].name.toLowerCase().includes(invSearch);
   let body;
   if (invStackMode){
     const merged = {};
-    Object.keys(inventory).forEach(k=>{
-      if (inventory[k]<=0) return;
+    validInventoryKeys().forEach(k=>{
       const [petal,tierStr] = k.split('|'); const tier = +tierStr;
       if (!matches(petal)) return;
       if (!merged[petal]) merged[petal] = { count:0, bestTier:tier };
@@ -1765,8 +1777,7 @@ function renderInventoryPanel(){
     body = `<div class="inv-grid">${cards || '<div class="inv-empty">No petals match.</div>'}</div>`;
   } else {
     const sections = [...RARITIES].reverse().map(rarity=>{
-      const keys = Object.keys(inventory).filter(k=>{
-        if (inventory[k]<=0) return false;
+      const keys = validInventoryKeys().filter(k=>{
         const [petal] = k.split('|');
         return PETAL_RARITY[petal]===rarity && matches(petal);
       }).sort((a,b)=>{
