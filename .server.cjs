@@ -100,6 +100,10 @@ http.createServer((req,res)=>{
   }
   let p = pathname; if (p==='/') p='/index.html';
   const fp=path.join(root,p);
+  // pick a content-type by extension — .js MUST be served as JavaScript or the browser refuses
+  // to run <script type="module"> (strict MIME check); GitHub Pages does this automatically.
+  const TYPES={'.html':'text/html','.js':'text/javascript','.css':'text/css','.json':'application/json'};
+  const ctype=TYPES[path.extname(fp)] || 'application/octet-stream';
   fs.readFile(fp,(e,data)=>{ if(e){res.writeHead(404);res.end('404');return;}
-    res.writeHead(200,{'Content-Type':'text/html'});res.end(data);});
+    res.writeHead(200,{'Content-Type':ctype});res.end(data);});
 }).listen(8001,()=>console.log('up'));

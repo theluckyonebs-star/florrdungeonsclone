@@ -261,6 +261,7 @@
 <div id="galTip" class="galtip"></div>
 
 <script src="balance.js"></script>
+<script type="module" src="multiplayer.js"></script>
 <script>
 const canvas = document.getElementById('c');
 let ctx = canvas.getContext('2d');
@@ -1044,6 +1045,7 @@ function draw(){
     for (const inst of player.instances) drawInstance(inst);
     drawPlayer();
   }
+  drawRemotePlayers();
 
   ctx.restore();
   renderLoadoutBar();
@@ -1115,6 +1117,37 @@ function drawPlayer(){
   ctx.beginPath(); ctx.lineWidth=2.4; ctx.strokeStyle='#3a2e00';
   ctx.arc(player.x, player.y+3, 7, 0.15*Math.PI, 0.85*Math.PI); ctx.stroke();
   entityHealthBar(player.x, player.y - player.r - 14, player.r*2, player.dispHealth/player.maxHealth, '#67e36a');
+}
+
+// other players, drawn from the live presence data streamed through Firebase. Their petals
+// arrive as pre-computed world positions (see getPresenceState), so we just paint them.
+function drawRemotePlayers(){
+  const r = 26;
+  for (const id in remotePlayers){
+    const rp = remotePlayers[id];
+    if (!rp || rp.x==null) continue;
+    // skip anyone well off-screen — no point drawing them
+    if (rp.x < cam.x-120 || rp.x > cam.x+W+120 || rp.y < cam.y-120 || rp.y > cam.y+H+120) continue;
+
+    if (Array.isArray(rp.pts)) for (const p of rp.pts) drawPetalIcon(ctx, p[2], p[0], p[1], 9, p[3]);
+
+    ctx.beginPath(); ctx.arc(rp.x, rp.y, r, 0, TAU);
+    ctx.fillStyle = rp.hf ? '#ff8a8a' : '#ffe25a';
+    ctx.fill();
+    ctx.lineWidth = 3; ctx.strokeStyle = '#d9b400'; ctx.stroke();
+    ctx.fillStyle = '#3a2e00';
+    ctx.beginPath(); ctx.arc(rp.x-8, rp.y-4, 3.4, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.arc(rp.x+8, rp.y-4, 3.4, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.lineWidth=2.4; ctx.strokeStyle='#3a2e00';
+    ctx.arc(rp.x, rp.y+3, 7, 0.15*Math.PI, 0.85*Math.PI); ctx.stroke();
+
+    if (rp.mh) entityHealthBar(rp.x, rp.y - r - 14, r*2, clamp(rp.h/rp.mh,0,1), '#67e36a');
+
+    ctx.font = '700 13px "Segoe UI", sans-serif'; ctx.textAlign='center'; ctx.textBaseline='bottom';
+    const label = `${rp.n||'Player'} · Lv ${rp.lv||1}`;
+    ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.strokeText(label, rp.x, rp.y - r - 22);
+    ctx.fillStyle = '#fff'; ctx.fillText(label, rp.x, rp.y - r - 22);
+  }
 }
 
 function drawMob(m){
@@ -2086,22 +2119,15 @@ function renderForgePanel(){
 /* ══════════════════════════════════════════
    ACCOUNTS + SAVE  ·  local/dev auth — see .server.cjs for the API
    ══════════════════════════════════════════ */
-let authed = true; // sign-in disabled for now (was failing to fetch) — game just runs unauthenticated
-let authToken = null;
+/* ══════════════════════════════════════════
+   MULTIPLAYER / ACCOUNTS / CLOUD SAVE
+   — accounts, saves, and live presence all run through Firebase (see multiplayer.js).
+     window.MP is that module's API; this block wires the game into it.
+   ══════════════════════════════════════════ */
+let authed = false;        // gated on Firebase login — the world stays frozen until signed in
+let myName = null;         // our display username (shown to other players)
+let remotePlayers = {};    // uid -> other players' live presence, refreshed by subscribePlayers
 
-function authHeaders(){ return authToken ? {'Authorization':'Bearer '+authToken} : {}; }
-async function apiPost(path, body){
-  const res = await fetch(path, { method:'POST', headers:{'Content-Type':'application/json', ...authHeaders()}, body: JSON.stringify(body||{}) });
-  const data = await res.json().catch(()=>({}));
-  if (!res.ok) throw new Error(data.error || 'request failed');
-  return data;
-}
-async function apiGet(path){
-  const res = await fetch(path, { headers: authHeaders() });
-  const data = await res.json().catch(()=>({}));
-  if (!res.ok) throw new Error(data.error || 'request failed');
-  return data;
-}
 // only true progress is saved — not ephemeral world/session state like position, live mobs,
 // pickups, or which panel is open
 function buildSavePayload(){
@@ -2110,6 +2136,7 @@ function buildSavePayload(){
     discoveredPetals: Array.from(discoveredPetals),
     killedMobs: Array.from(killedMobs),
     loadouts, activeLoadout, essence,
+    username: myName || null,
   };
 }
 function applySave(save){
@@ -2125,51 +2152,95 @@ function applySave(save){
   player = makePlayer();
   rebuildInstances();
 }
-let saveInFlight = false;
 function saveProgress(){
-  if (!authed || !authToken || saveInFlight) return; // no-op while sign-in is disabled (no token)
-  saveInFlight = true;
-  apiPost('/api/save', buildSavePayload()).catch(()=>{}).finally(()=>{ saveInFlight = false; });
+  if (!authed || !window.MP) return;
+  window.MP.saveProgress(buildSavePayload());
 }
-function setAuthError(msg){ document.getElementById('authError').textContent = msg || ''; }
-// isResume: true when restoring a stored session on page load (vs a fresh login/signup click) —
-// only then do we bounce back to the login screen if the token turns out to be stale
-async function enterGame(token, username, isResume){
-  authToken = token;
-  try {
-    const { save } = await apiGet('/api/load');
-    applySave(save);
-  } catch(e){
-    if (isResume){
-      localStorage.removeItem('florrToken'); localStorage.removeItem('florrUser');
-      document.getElementById('authScreen').classList.add('show');
-      return;
-    }
+
+// the compact live blob other players receive to render our flower + petals. Petals are sent
+// as absolute world positions (visible ones only) so remotes don't have to replicate our orbit
+// math — bulletproof, and tiny for a handful of players.
+function getPresenceState(){
+  const pts = [];
+  for (const inst of player.instances){
+    if (inst.broken || inst.eating) continue;
+    pts.push([Math.round(inst.x), Math.round(inst.y), inst.petal, inst.tier]);
   }
-  localStorage.setItem('florrToken', token);
-  localStorage.setItem('florrUser', username);
+  return {
+    n: myName || 'Player',
+    x: Math.round(player.x), y: Math.round(player.y),
+    lv: playerLevel,
+    h: Math.round(player.health), mh: Math.round(player.maxHealth),
+    hf: player.hurtFlash>0 ? 1 : 0,
+    pts,
+  };
+}
+
+function setAuthError(msg){ document.getElementById('authError').textContent = msg || ''; }
+function enterGameUI(){
   authed = true;
   document.getElementById('authScreen').classList.remove('show');
   document.getElementById('logoutBtn').style.display = '';
 }
-function doLogin(){
-  const username = document.getElementById('authUser').value.trim();
-  const password = document.getElementById('authPass').value;
+function showLoginUI(){
+  authed = false;
+  document.getElementById('authScreen').classList.add('show');
+  document.getElementById('logoutBtn').style.display = 'none';
+}
+
+// Firebase fires this on login, on logout, and once on page load (auto-resuming a saved session)
+async function handleAuth(user){
+  if (!user){ showLoginUI(); return; }
   setAuthError('');
-  apiPost('/api/login', {username, password}).then(({token})=>enterGame(token, username)).catch(e=>setAuthError(e.message));
+  // on a fresh reload the module hasn't got our display name in memory yet — recover it
+  myName = window.MP.username || await window.MP.loadProfileUsername() || 'Player';
+  try { applySave(await window.MP.loadSave()); }
+  catch(e){ /* brand-new account or transient read hiccup — just start from defaults */ }
+  enterGameUI();
+  window.MP.startPresence(getPresenceState);
+  window.MP.subscribePlayers(others => { remotePlayers = others; });
+}
+
+// turn Firebase's error codes into something readable in the login box
+function friendlyAuthError(e){
+  const c = (e && e.code) || '';
+  if (c.includes('email-already-in-use')) return 'That username is already taken.';
+  if (c.includes('invalid-credential') || c.includes('wrong-password') || c.includes('user-not-found')) return 'Wrong username or password.';
+  if (c.includes('weak-password')) return 'Password must be at least 6 characters.';
+  if (c.includes('network-request-failed')) return 'Network error — check your connection.';
+  if (c.includes('operation-not-allowed') || c.includes('configuration-not-found')) return 'Email/Password sign-in is not enabled in Firebase yet.';
+  return (e && e.message) || 'Something went wrong.';
+}
+function doLogin(){
+  if (!window.MP){ setAuthError('Still connecting to the server…'); return; }
+  const u = document.getElementById('authUser').value.trim();
+  const p = document.getElementById('authPass').value;
+  setAuthError('');
+  if (!u || !p){ setAuthError('Enter a username and password.'); return; }
+  window.MP.login(u, p).catch(e=>setAuthError(friendlyAuthError(e)));
 }
 function doSignup(){
-  const username = document.getElementById('authUser').value.trim();
-  const password = document.getElementById('authPass').value;
+  if (!window.MP){ setAuthError('Still connecting to the server…'); return; }
+  const u = document.getElementById('authUser').value.trim();
+  const p = document.getElementById('authPass').value;
   setAuthError('');
-  apiPost('/api/signup', {username, password}).then(({token})=>enterGame(token, username)).catch(e=>setAuthError(e.message));
+  if (!u || !p){ setAuthError('Enter a username and password.'); return; }
+  if (p.length < 6){ setAuthError('Password must be at least 6 characters.'); return; }
+  window.MP.signup(u, p).catch(e=>setAuthError(friendlyAuthError(e)));
 }
 function logout(){
   saveProgress();
-  localStorage.removeItem('florrToken'); localStorage.removeItem('florrUser');
-  location.reload();
+  (window.MP ? window.MP.logout() : Promise.resolve()).finally(()=>location.reload());
 }
 window.doLogin = doLogin; window.doSignup = doSignup; window.logout = logout;
+
+// wire into the Firebase module once it's initialized (it may load before or after this script)
+function initMultiplayer(){ window.MP.onAuth(handleAuth); }
+if (window.MP) initMultiplayer();
+else window.addEventListener('mp-ready', initMultiplayer, { once:true });
+// if Firebase never loads (CDN blocked / offline), tell the player instead of hanging silently
+showLoginUI();
+setTimeout(()=>{ if (!window.MP) setAuthError('Couldn’t reach the game server. Check your connection and refresh.'); }, 10000);
 
 setInterval(saveProgress, 15000);
 addEventListener('visibilitychange', ()=>{ if (document.visibilityState==='hidden') saveProgress(); });
