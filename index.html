@@ -833,14 +833,20 @@ function positionInstance(inst, dt){
   }
 }
 function updateInstances(dt){
-  let rotBonus=0, rangeBonus=0;
+  // passive/secondary effects (rotation speed, range, per-second healing) come from a petal
+  // just being equipped, not from it currently being "alive" — so unlike active combat, these
+  // stay on even while the instance is broken/reloading. Only excluded while flying (a Web
+  // projectile mid-flight), which none of these stats are ever defined on anyway.
+  let rotBonus=0, rangeBonus=0, healPerSec=0;
   for (const inst of player.instances){
     const def = PETAL_DEFS[inst.petal];
-    if (inst.broken || inst.flying) continue;
+    if (inst.flying) continue;
     if (def.rotBonus) rotBonus += def.rotBonus * specialTierScale(inst.petal, 'rotBonus', inst.tier);
     if (def.rangeBonus) rangeBonus += def.rangeBonus * specialTierScale(inst.petal, 'rangeBonus', inst.tier);
+    if (def.healPerSec) healPerSec += pscale(def,'healPerSec',inst.petal,inst.tier);
   }
   player.auraRot = rotBonus; player.auraRange = rangeBonus;
+  if (healPerSec) player.health = Math.min(player.maxHealth, player.health + healPerSec*dt);
 
   for (const inst of player.instances){
     const def = PETAL_DEFS[inst.petal], tier = inst.tier;
@@ -895,8 +901,6 @@ function updateInstances(dt){
         }
       } else if (inst.life<=0){ breakInstance(inst, def); continue; }
     }
-
-    if (def.healPerSec) player.health = Math.min(player.maxHealth, player.health + pscale(def,'healPerSec',inst.petal,tier)*dt);
 
     // healing petals (armTime + healBurst) sit charged and idle at full HP instead of
     // wasting themselves — the arm timer only ticks down once healing is actually needed
