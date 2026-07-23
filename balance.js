@@ -113,20 +113,22 @@ const FLOWER_HP_PETALS = { dahlia: 2, tulip: 5 };
    DROP TABLES  ·  per mob level, the % chance for EACH petal in a mob's drop list to drop,
    keyed by that petal's fixed rarity — every petal on the list is rolled independently
    ══════════════════════════════════════════ */
+// every rate below 100% is doubled from its original value (capped at 100) — a deliberate
+// buff to drop frequency; rates already at 100% have nowhere to go and stay put
 const DROP_RATE_TABLE = {
-  1:  { common:15,  unusual:1,   rare:0.1, epic:0,    legendary:0,    mythic:0 },
-  5:  { common:30,  unusual:2,   rare:0.2, epic:0,    legendary:0,    mythic:0 },
-  10: { common:50,  unusual:5,   rare:0.3, epic:0,    legendary:0,    mythic:0 },
-  15: { common:100, unusual:15,  rare:1,   epic:0.1,  legendary:0,    mythic:0 },
-  20: { common:100, unusual:30,  rare:2,   epic:0.2,  legendary:0,    mythic:0 },
-  25: { common:100, unusual:50,  rare:5,   epic:0.3,  legendary:0,    mythic:0 },
-  30: { common:100, unusual:100, rare:10,  epic:0.5,  legendary:0.05, mythic:0 },
-  35: { common:100, unusual:100, rare:20,  epic:1,    legendary:0.1,  mythic:0 },
-  40: { common:100, unusual:100, rare:40,  epic:3,    legendary:0.2,  mythic:0 },
-  45: { common:100, unusual:100, rare:80,  epic:5,    legendary:1,    mythic:0.001 },
-  50: { common:100, unusual:100, rare:80,  epic:10,   legendary:2,    mythic:0.005 },
-  55: { common:100, unusual:100, rare:80,  epic:20,   legendary:3,    mythic:0.01 },
-  70: { common:100, unusual:100, rare:100, epic:50,   legendary:10,   mythic:0.1 },
+  1:  { common:30,  unusual:2,   rare:0.2, epic:0,    legendary:0,   mythic:0 },
+  5:  { common:60,  unusual:4,   rare:0.4, epic:0,    legendary:0,   mythic:0 },
+  10: { common:100, unusual:10,  rare:0.6, epic:0,    legendary:0,   mythic:0 },
+  15: { common:100, unusual:30,  rare:2,   epic:0.2,  legendary:0,   mythic:0 },
+  20: { common:100, unusual:60,  rare:4,   epic:0.4,  legendary:0,   mythic:0 },
+  25: { common:100, unusual:100, rare:10,  epic:0.6,  legendary:0,   mythic:0 },
+  30: { common:100, unusual:100, rare:20,  epic:1,    legendary:0.1, mythic:0 },
+  35: { common:100, unusual:100, rare:40,  epic:2,    legendary:0.2, mythic:0 },
+  40: { common:100, unusual:100, rare:80,  epic:6,    legendary:0.4, mythic:0 },
+  45: { common:100, unusual:100, rare:100, epic:10,   legendary:2,   mythic:0.002 },
+  50: { common:100, unusual:100, rare:100, epic:20,   legendary:4,   mythic:0.01 },
+  55: { common:100, unusual:100, rare:100, epic:40,   legendary:6,   mythic:0.02 },
+  70: { common:100, unusual:100, rare:100, epic:100,  legendary:20,  mythic:0.2 },
 };
 /* ── Zone jackpots (multicopies) ──────────────────────────────────────────────────────────
    Each rarity's jackpot multiplier is introduced one zone later than the previous rarity's
@@ -337,9 +339,9 @@ const MOB_DEFS = {
 // there's no per-mob level list, it's purely which ZONES.levels a mob's zone/weight allow.
 const MOB_LEVELS = [1,5,10,15,20,25,30,35,40,45,50,55,70];
 // the master difficulty curve — health/contactDmg/petalDmg for EVERY mob are multiplied by
-// this at spawn time (3x for every 5 levels gained), so bumping a mob's base numbers in
+// this at spawn time (2x for every 5 levels gained), so bumping a mob's base numbers in
 // MOB_DEFS above scales proportionally at every level for free.
-function mobLevelScale(level){ return Math.pow(3, Math.floor(level/5)); }
+function mobLevelScale(level){ return Math.pow(2, Math.floor(level/5)); }
 // aggro range starts lower (see MOB_DEFS.aggroRange above) and grows 1.1x every 5 levels —
 // much gentler than the 3x/5-level health/damage curve, so high-level hostiles notice you
 // from further away without becoming absurdly HP/damage-scaled on top of it

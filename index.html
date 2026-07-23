@@ -953,8 +953,81 @@ function updatePickups(dt){
 let dead = false;
 const DEATH_ANIM_DUR = 0.28; // mobs pop and fade out over this long instead of vanishing instantly
 
+// mob simulation/mirroring, spawning, and the world broadcast — this must keep running even
+// while the LOCAL player is dead and waiting to respawn, since (if we're the host) every other
+// player's mobs depend on us continuing to simulate and broadcast. Only the local player's own
+// movement/combat pauses on death; the shared world does not.
+function updateWorld(dt){
+  if (amHost){
+    // host simulates the mobs. Mobs more than one zone away from every player are "frozen":
+    // left in place (kept for consistency) but not simulated — no AI, no physics — which cuts
+    // the per-frame cost and the amount of mob state we have to broadcast.
+    const activeZones = activeZoneSet();
+    const active = [];
+    for (const m of mobs){
+      if (m.dying) continue;
+      if (activeZones.has(zoneAt(m.x).idx)){ updateMob(m, dt); active.push(m); }
+    }
+    for (let i=0;i<active.length;i++)
+      for (let j=i+1;j<active.length;j++)
+        resolveOverlap(active[i], active[j], active[i].mass, active[j].mass);
+  } else {
+    // non-host: we don't simulate — dead-reckon each mirrored mob using the velocity estimated
+    // in ingestWorldMobs (glides continuously instead of lurching point-to-point at the
+    // broadcast rate), with a gentle continuous pull back toward the last known authoritative
+    // position so any drift/estimation error corrects itself smoothly instead of snapping.
+    for (const m of mobs){
+      if (m.dying) continue;
+      if (m.tx!=null){
+        m.x += (m.netVX||0)*dt; m.y += (m.netVY||0)*dt;
+        const cdx = m.tx-m.x, cdy = m.ty-m.y;
+        m.x += cdx*clamp(2*dt,0,1); m.y += cdy*clamp(2*dt,0,1);
+        // most mob draw functions orient themselves off atan2(vy,vx) — mirrored mobs never run
+        // real physics, so without this their facing angle would freeze at whatever it was when
+        // first spawned. Ease the facing vector toward the actual movement direction (rather
+        // than snapping to it every broadcast) so rotation turns smoothly instead of jittering.
+        const mvx = m.netVX||0, mvy = m.netVY||0;
+        if (len(mvx,mvy) > 1){ m.vx += (mvx-m.vx)*clamp(6*dt,0,1); m.vy += (mvy-m.vy)*clamp(6*dt,0,1); }
+      }
+      if (m.hurtFlash>0) m.hurtFlash -= dt;
+      if (m.type==='spider') m.legPhase += dt*4;
+      m.dispHealth += (m.health - m.dispHealth) * clamp(HP_EASE*dt, 0, 1);
+    }
+  }
+
+  for (let i=mobs.length-1;i>=0;i--){
+    const m = mobs[i];
+    if (m.dying){   // death animation runs on every client (host and mirrors alike)
+      m.dieT += dt;
+      if (m.dieT >= DEATH_ANIM_DUR){ if (m.netId) delete mobById[m.netId]; mobs.splice(i,1); }
+      continue;
+    }
+    if (!amHost) continue;   // only the host decides despawns and deaths
+    // anti-cheese: luring a mob more than one zone away from where it spawned despawns it
+    // instantly with no drops or XP, instead of letting it be dragged into an easier zone to farm
+    if (Math.abs(zoneAt(m.x).idx - m.spawnZoneIdx) > 1){
+      if (m.netId) delete mobById[m.netId];
+      mobs.splice(i,1);
+      continue;
+    }
+    if (m.health<=0){
+      // announce the death; each client that damaged it grants ITSELF loot + XP (see handleDeaths)
+      m.dying = true; m.dieT = 0;
+      window.MP.publishDeath(m.netId, {ty:TYPE_IDX[m.type], lv:m.level, x:Math.round(m.x), y:Math.round(m.y)});
+    }
+  }
+  if (amHost){
+    updateSpawns(dt);
+    // broadcast the mob set on a fixed cadence, independent of frame rate
+    worldPubT -= dt;
+    if (worldPubT <= 0){ worldPubT = WORLD_PUB_PERIOD; publishWorldMobs(); }
+  }
+}
+
 function update(dt){
-  if (dead || !authed) return;
+  if (!authed) return;
+  updateWorld(dt);
+  if (dead) return;
 
   let locked = false;
   if (player.kbLock > 0){ player.kbLock -= dt; locked = true; }
@@ -995,43 +1068,6 @@ function update(dt){
 
   updateInstances(dt);
 
-  if (amHost){
-    // host simulates the mobs. Mobs more than one zone away from every player are "frozen":
-    // left in place (kept for consistency) but not simulated — no AI, no physics — which cuts
-    // the per-frame cost and the amount of mob state we have to broadcast.
-    const activeZones = activeZoneSet();
-    const active = [];
-    for (const m of mobs){
-      if (m.dying) continue;
-      if (activeZones.has(zoneAt(m.x).idx)){ updateMob(m, dt); active.push(m); }
-    }
-    for (let i=0;i<active.length;i++)
-      for (let j=i+1;j<active.length;j++)
-        resolveOverlap(active[i], active[j], active[i].mass, active[j].mass);
-  } else {
-    // non-host: we don't simulate — dead-reckon each mirrored mob using the velocity estimated
-    // in ingestWorldMobs (glides continuously instead of lurching point-to-point at the
-    // broadcast rate), with a gentle continuous pull back toward the last known authoritative
-    // position so any drift/estimation error corrects itself smoothly instead of snapping.
-    for (const m of mobs){
-      if (m.dying) continue;
-      if (m.tx!=null){
-        m.x += (m.netVX||0)*dt; m.y += (m.netVY||0)*dt;
-        const cdx = m.tx-m.x, cdy = m.ty-m.y;
-        m.x += cdx*clamp(2*dt,0,1); m.y += cdy*clamp(2*dt,0,1);
-        // most mob draw functions orient themselves off atan2(vy,vx) — mirrored mobs never run
-        // real physics, so without this their facing angle would freeze at whatever it was when
-        // first spawned. Ease the facing vector toward the actual movement direction (rather
-        // than snapping to it every broadcast) so rotation turns smoothly instead of jittering.
-        const mvx = m.netVX||0, mvy = m.netVY||0;
-        if (len(mvx,mvy) > 1){ m.vx += (mvx-m.vx)*clamp(6*dt,0,1); m.vy += (mvy-m.vy)*clamp(6*dt,0,1); }
-      }
-      if (m.hurtFlash>0) m.hurtFlash -= dt;
-      if (m.type==='spider') m.legPhase += dt*4;
-      m.dispHealth += (m.health - m.dispHealth) * clamp(HP_EASE*dt, 0, 1);
-    }
-  }
-
   for (const inst of player.instances){
     if (inst.broken || inst.eating) continue;
     const def = PETAL_DEFS[inst.petal];
@@ -1066,33 +1102,6 @@ function update(dt){
     }
   }
 
-  for (let i=mobs.length-1;i>=0;i--){
-    const m = mobs[i];
-    if (m.dying){   // death animation runs on every client (host and mirrors alike)
-      m.dieT += dt;
-      if (m.dieT >= DEATH_ANIM_DUR){ if (m.netId) delete mobById[m.netId]; mobs.splice(i,1); }
-      continue;
-    }
-    if (!amHost) continue;   // only the host decides despawns and deaths
-    // anti-cheese: luring a mob more than one zone away from where it spawned despawns it
-    // instantly with no drops or XP, instead of letting it be dragged into an easier zone to farm
-    if (Math.abs(zoneAt(m.x).idx - m.spawnZoneIdx) > 1){
-      if (m.netId) delete mobById[m.netId];
-      mobs.splice(i,1);
-      continue;
-    }
-    if (m.health<=0){
-      // announce the death; each client that damaged it grants ITSELF loot + XP (see handleDeaths)
-      m.dying = true; m.dieT = 0;
-      window.MP.publishDeath(m.netId, {ty:TYPE_IDX[m.type], lv:m.level, x:Math.round(m.x), y:Math.round(m.y)});
-    }
-  }
-  if (amHost){
-    updateSpawns(dt);
-    // broadcast the mob set on a fixed cadence, independent of frame rate
-    worldPubT -= dt;
-    if (worldPubT <= 0){ worldPubT = WORLD_PUB_PERIOD; publishWorldMobs(); }
-  }
   updatePickups(dt);
 
   cam.x = clamp(player.x - W/2, 0, ARENA.w - W);
