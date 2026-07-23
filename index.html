@@ -2320,11 +2320,14 @@ let worldSeq = 0;                    // host's rolling mob-id counter
 // wrong health)
 const NET_PREFIX = 'm' + Math.random().toString(36).slice(2,8) + Math.random().toString(36).slice(2,6) + '_';
 const mobById = {};                  // netId -> mob object (mirror lookup / cleanup)
-const myHits = new Map();            // netId -> last time I damaged it (for loot attribution)
+// mobs I've landed a hit on, for loot attribution — no time limit, so a fight interrupted by
+// dying/respawning (or just taking a while) doesn't cost you credit for damage you already
+// dealt; a mob only drops out of this once it actually dies (or gets anti-cheese despawned,
+// which removes it from the world for everyone, dropless, same as today)
+const myHits = new Set();
 const processedDeaths = new Set();   // death-event ids already handled
 let worldPubT = 0;
 const WORLD_PUB_PERIOD = 1/7;        // host broadcasts the mob set ~7x/sec
-const MY_HIT_TTL = 6000;            // I earn a mob's loot if I hit it within this long before it died
 
 function ensureNetId(m){ if (m && !m.netId){ m.netId = NET_PREFIX+(worldSeq++); mobById[m.netId] = m; } }
 // drop every mirrored mob — used when the host changes, so ids from the previous host's world
@@ -2333,7 +2336,7 @@ function clearMirror(){
   for (let i=mobs.length-1;i>=0;i--){ if (mobs[i].netId) mobs.splice(i,1); }
   for (const k in mobById) delete mobById[k];
 }
-function noteMyHit(netId){ if (netId) myHits.set(netId, performance.now()); }
+function noteMyHit(netId){ if (netId) myHits.add(netId); }
 // closest player (local or remote) to a point — so host mobs chase whoever's nearest, not just me
 function nearestPlayerPos(x,y){
   let bx=player.x, by=player.y, bd=len(player.x-x, player.y-y);
@@ -2402,13 +2405,11 @@ function consumeHits(hits){
 }
 // everyone: react to a death — grant my own loot/XP if I hit it, and (as a mirror) animate it
 function handleDeaths(deaths){
-  const now = performance.now();
   for (const id in deaths){
     if (processedDeaths.has(id)) continue;
     processedDeaths.add(id);
     const d = deaths[id];
-    const hitAt = myHits.get(id);
-    if (hitAt != null && now - hitAt < MY_HIT_TTL){
+    if (myHits.has(id)){
       myHits.delete(id);
       const type = TYPE_LIST[d.ty], level = d.lv;
       const wasNew = !killedMobs.has(type+'|'+level);
