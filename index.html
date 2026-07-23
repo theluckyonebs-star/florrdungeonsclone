@@ -980,17 +980,22 @@ function update(dt){
       for (let j=i+1;j<active.length;j++)
         resolveOverlap(active[i], active[j], active[i].mass, active[j].mass);
   } else {
-    // non-host: we don't simulate — just smoothly interpolate each mirrored mob toward the
-    // latest position the host broadcast, and ease its health bar / hurt flash locally.
+    // non-host: we don't simulate — dead-reckon each mirrored mob using the velocity estimated
+    // in ingestWorldMobs (glides continuously instead of lurching point-to-point at the
+    // broadcast rate), with a gentle continuous pull back toward the last known authoritative
+    // position so any drift/estimation error corrects itself smoothly instead of snapping.
     for (const m of mobs){
       if (m.dying) continue;
       if (m.tx!=null){
-        const dx = m.tx-m.x, dy = m.ty-m.y;
-        m.x += dx*clamp(14*dt,0,1); m.y += dy*clamp(14*dt,0,1);
+        m.x += (m.netVX||0)*dt; m.y += (m.netVY||0)*dt;
+        const cdx = m.tx-m.x, cdy = m.ty-m.y;
+        m.x += cdx*clamp(2*dt,0,1); m.y += cdy*clamp(2*dt,0,1);
         // most mob draw functions orient themselves off atan2(vy,vx) — mirrored mobs never run
         // real physics, so without this their facing angle would freeze at whatever it was when
-        // first spawned. Derive a facing vector from the direction we're actually moving instead.
-        if (len(dx,dy) > 0.5){ m.vx = dx; m.vy = dy; }
+        // first spawned. Ease the facing vector toward the actual movement direction (rather
+        // than snapping to it every broadcast) so rotation turns smoothly instead of jittering.
+        const mvx = m.netVX||0, mvy = m.netVY||0;
+        if (len(mvx,mvy) > 1){ m.vx += (mvx-m.vx)*clamp(6*dt,0,1); m.vy += (mvy-m.vy)*clamp(6*dt,0,1); }
       }
       if (m.hurtFlash>0) m.hurtFlash -= dt;
       if (m.type==='spider') m.legPhase += dt*4;
@@ -1198,11 +1203,10 @@ function drawRemotePlayers(){
     // skip anyone well off-screen — no point drawing them
     if (dx < cam.x-120 || dx > cam.x+W+120 || dy < cam.y-120 || dy > cam.y+H+120) continue;
 
-    // petals arrive as absolute world positions computed against the sender's real (non-
-    // smoothed) position — offset them by the same amount we smoothed the flower by, so they
-    // stay visually attached instead of lagging behind/ahead of the interpolated body
-    const ox = dx-rp.x, oy = dy-rp.y;
-    if (Array.isArray(rp.pts)) for (const p of rp.pts) drawPetalIcon(ctx, p[2], p[0]+ox, p[1]+oy, 9, p[3]);
+    if (Array.isArray(rp.pts)) rp.pts.forEach((p,i)=>{
+      const dp = disp.pts[i];
+      drawPetalIcon(ctx, p[2], dp?dp.x:p[0], dp?dp.y:p[1], 9, p[3]);
+    });
 
     ctx.beginPath(); ctx.arc(dx, dy, r, 0, TAU);
     ctx.fillStyle = rp.hf ? '#ff8a8a' : '#ffe25a';
@@ -2220,8 +2224,17 @@ function updateRemoteDisplay(dt){
     if (!rp || rp.x==null || rp.d) continue;   // rp.d: this player is dead, don't track/draw them
     seen.add(id);
     let disp = remoteDisplay[id];
-    if (!disp){ disp = remoteDisplay[id] = { x: rp.x, y: rp.y }; }   // snap in on first sight
+    if (!disp){ disp = remoteDisplay[id] = { x: rp.x, y: rp.y, pts: [] }; }   // snap in on first sight
     else { disp.x += (rp.x-disp.x)*clamp(12*dt,0,1); disp.y += (rp.y-disp.y)*clamp(12*dt,0,1); }
+    // smooth each orbiting petal's position the same way, matched by slot order (stable unless
+    // the player's loadout size just changed, in which case snap instead of interpolating
+    // between two unrelated petals)
+    const rpts = rp.pts || [];
+    if (disp.pts.length !== rpts.length) disp.pts = rpts.map(p => ({x:p[0], y:p[1]}));
+    else for (let i=0;i<rpts.length;i++){
+      const dp = disp.pts[i], p = rpts[i];
+      dp.x += (p[0]-dp.x)*clamp(12*dt,0,1); dp.y += (p[1]-dp.y)*clamp(12*dt,0,1);
+    }
   }
   for (const id in remoteDisplay) if (!seen.has(id)) delete remoteDisplay[id];
 }
@@ -2272,6 +2285,7 @@ function publishWorldMobs(){
 }
 // non-host: fold a broadcast snapshot into the local mirror
 function ingestWorldMobs(obj){
+  const now = performance.now();
   const seen = new Set();
   for (const id in obj){
     const a = obj[id];
@@ -2281,9 +2295,16 @@ function ingestWorldMobs(obj){
     if (!m){
       m = spawnMob(type, level, x, y);   // full mob object (radius, colors, mass, rock verts…)
       m.netId = id; m.mirror = true; m.dispHealth = hp; mobById[id] = m;
+      m.tx = x; m.ty = y; m.netVX = 0; m.netVY = 0;
+    } else {
+      // estimate a constant velocity from how far the authoritative position moved since the
+      // last broadcast, so the mirror can glide continuously between updates (dead reckoning)
+      // instead of visibly lurching from point to point at the broadcast rate
+      const dtNet = Math.max(0.02, (now - m.netSeen)/1000);
+      m.netVX = (x - m.tx) / dtNet; m.netVY = (y - m.ty) / dtNet;
+      m.tx = x; m.ty = y;
     }
-    m.tx = x; m.ty = y;                  // interpolation targets
-    m.health = hp; m.facing = f8/255*TAU; m.netSeen = performance.now();
+    m.health = hp; m.facing = f8/255*TAU; m.netSeen = now;
   }
   // drop mirrored mobs the host stopped broadcasting (unless they're mid death-animation)
   for (let i=mobs.length-1;i>=0;i--){
