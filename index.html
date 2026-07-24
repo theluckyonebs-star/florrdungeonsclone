@@ -159,6 +159,17 @@
   /* fail: destroyed petals pop and fade fast, echoing the mob death-burst look */
   .craft-pentagon.result-fail .craftslot.destroyed{animation:craftDestroy .32s ease-out forwards;}
   @keyframes craftDestroy{ from{transform:scale(1);opacity:1;} to{transform:scale(1.55);opacity:0;} }
+  /* divide "split" — the exact reverse of the success merge: the source sits in the center and
+     bursts apart into the pieces that fan back out to the arms */
+  .craft-pentagon.result-split .craft-radius{animation:craftSplitOut .5s cubic-bezier(.3,.7,.4,1) forwards;}
+  @keyframes craftSplitOut{ from{transform:translateX(0);} to{transform:translateX(54px);} }
+  .craft-pentagon.result-split .craftslot{animation:craftSplitGrow .5s cubic-bezier(.3,.7,.4,1) forwards;}
+  @keyframes craftSplitGrow{ 0%{opacity:0;transform:scale(.2);} 45%{opacity:1;} 100%{opacity:1;transform:scale(1);} }
+  .craft-pentagon.result-split .craft-center-inner{animation:craftSourceOut .45s ease-in forwards;}
+  @keyframes craftSourceOut{ 0%{opacity:1;transform:scale(1);} 100%{opacity:0;transform:scale(.3);} }
+  /* the source charges/pulses in the center while dividing (arms are empty then) */
+  .craft-pentagon.spinning .craft-center-inner{animation:craftSourceCharge 2.2s ease-in-out forwards;}
+  @keyframes craftSourceCharge{ 0%,100%{transform:scale(1);} 25%,75%{transform:scale(1.18);} 50%{transform:scale(1);} }
   /* offset from the pentagon's rotational center to its visual (bounding-box) center — a
      5-vertex shape always has one side stick out further than the other, so they're not the same point */
   .craft-center{position:absolute;left:calc(50% + 5.16px);top:50%;width:0;height:0;display:flex;align-items:center;justify-content:center;}
@@ -186,8 +197,11 @@
   /* forge menus size to their content instead of the generic flex:1 rule (which would collapse
      to ~0 since the panel has no fixed height to grow into) */
   .panel.forge .panel-body{flex:0 0 auto;padding:2px 8px 8px;}
-  .panel.forge .craft-fixed{padding:8px 8px 0;}
-  .panel.forge .craft-top{margin-bottom:2px;}
+  .panel.forge .craft-fixed{padding:8px 6px 0;}
+  /* pentagon and its action column sit side-by-side so the forge fills its width instead of
+     leaving a big empty band on either side of a centered pentagon */
+  .panel.forge .craft-top{flex-direction:row;justify-content:center;align-items:center;gap:6px;margin-bottom:2px;}
+  .panel.forge .craft-action{width:148px;}
   /* icon back-button that lives to the left of a sub-menu title */
   .panel-head .head-left{display:flex;align-items:center;gap:8px;}
   .backbtn{background:#b3a635;border:2px solid #7d7328;color:#3a3418;font-weight:900;font-size:15px;line-height:1;
@@ -209,6 +223,13 @@
   .forge-step .grow{grid-template-columns:repeat(6,52px);justify-content:center;gap:4px;}
   .forge-step .gcell{border-width:3px;}
   .forge-step .eicon,.forge-step .picn{width:34px;height:34px;}
+  /* essence inventory cells carry a name label (essences look alike; petals read by shape) —
+     smaller font for long names like "Exoskeleton" so they don't overflow the box */
+  .gcell.named{flex-direction:column;gap:1px;padding:2px;box-sizing:border-box;}
+  .gcell.named .eicon{width:26px;height:26px;}
+  .gcell .gc-name{font-size:8px;font-weight:900;color:#33301a;line-height:1.05;text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .gcell .gc-name.long{font-size:6.5px;letter-spacing:-.02em;}
+  .gcell.named .gc-count{top:1px;right:2px;bottom:auto;}
 
   /* click-triggered detail tooltip, shared by both galleries */
   .galtip{position:fixed;display:none;z-index:90;width:250px;background:#1c2410;border:3px solid #7d7328;border-radius:12px;padding:12px 14px;color:#f2edcf;box-shadow:0 12px 28px rgba(0,0,0,.5);}
@@ -1938,8 +1959,10 @@ function essenceCell(rarity, name){
   if (name!=='base' && RARITIES.indexOf(rarity) < RARITIES.indexOf(SIGNATURE_ESSENCES[name].startRarity))
     return `<div class="gcell impossible"></div>`;
   const cnt = essence[essenceKey(rarity, name)]||0;
-  return `<div class="gcell ${cnt?'':'short'}" style="--rc:${RARITY_INFO[rarity].color}">
+  const label = name==='base' ? 'Base' : SIGNATURE_ESSENCES[name].name;
+  return `<div class="gcell named ${cnt?'':'short'}" style="--rc:${RARITY_INFO[rarity].color}">
     <canvas class="eicon" data-rarity="${rarity}" data-name="${name}" width="40" height="40"></canvas>
+    <div class="gc-name ${label.length>6?'long':''}">${label}</div>
     <div class="gc-count">x${gridCount(cnt)}</div>
   </div>`;
 }
@@ -2275,10 +2298,10 @@ function forgeHead(title, onBack){
 // each hub tile shows a representative icon (drawn via the standard picn/eicon canvases) + a
 // one-word label, no descriptive prose
 const FORGE_MENU_INFO = {
-  basic:         { title:'Basic',    label:'Basic',    icon:`<canvas class="picn" data-petal="${'basic'}" width="46" height="46"></canvas>`, rc:'#f2f2f2' },
-  petalForge:    { title:'Petal',    label:'Petal',    icon:`<canvas class="picn" data-petal="stinger" width="46" height="46"></canvas>`, rc:'#1a1a1a' },
-  essenceForge:  { title:'Essence',  label:'Forge',    icon:`<canvas class="eicon" data-rarity="rare" data-name="light" width="46" height="46"></canvas>`, rc:'#fff27a' },
-  essenceDivide: { title:'Divide',   label:'Divide',   icon:`<canvas class="eicon" data-rarity="epic" data-name="multi" width="46" height="46"></canvas>`, rc:'#8a5fd6' },
+  basic:         { label:'Basic Forging',    icon:`<canvas class="picn" data-petal="stinger" width="46" height="46"></canvas>`, rc:'#f2f2f2' },
+  petalForge:    { label:'Petal Forging',    icon:`<canvas class="picn" data-petal="stinger" width="46" height="46"></canvas>`, rc:'#1a1a1a' },
+  essenceForge:  { label:'Essence Forging',  icon:`<canvas class="eicon" data-rarity="rare" data-name="light" width="46" height="46"></canvas>`, rc:'#fff27a' },
+  essenceDivide: { label:'Essence Dividing', icon:`<canvas class="eicon" data-rarity="epic" data-name="multi" width="46" height="46"></canvas>`, rc:'#8a5fd6' },
 };
 function renderForgeHub(){
   const tiles = Object.keys(FORGE_MENU_INFO).map(menu=>{
@@ -2346,7 +2369,7 @@ function renderBasicForging(){
       </div>`;
     }).join('');
     return `
-      ${forgeHead('Basic', "openForgeMenu(null)")}
+      ${forgeHead('Basic Forging', "openForgeMenu(null)")}
       <div class="panel-body"><div class="grow">${cells}</div></div>`;
   }
 
@@ -2380,7 +2403,7 @@ function renderBasicForging(){
   else statusText = canForge ? (batches>1?`Forge ${batches}×`:'Forge') : `Need ${BASIC_FORGE_COST} Essence`;
 
   return `
-    ${forgeHead('Basic', "selectBasicRarity(null)")}
+    ${forgeHead('Basic Forging', "selectBasicRarity(null)")}
     <div class="craft-fixed">
       <div class="craft-top">
         <div class="craft-pentagon ${pentagonState}">${arms}${center}</div>
@@ -2472,7 +2495,7 @@ function renderPetalForging(){
       </div>`;
     }).join('');
     return `
-      ${forgeHead('Petal', "openForgeMenu(null)")}
+      ${forgeHead('Petal Forging', "openForgeMenu(null)")}
       <div class="panel-body"><div class="grow">${cells}</div></div>`;
   }
 
@@ -2642,7 +2665,7 @@ function renderEssenceForging(){
   else statusText = ready ? 'Forge' : 'Pick a combo';
 
   return `
-    ${forgeHead('Essence', "openForgeMenu(null)")}
+    ${forgeHead('Essence Forging', "openForgeMenu(null)")}
     <div class="craft-fixed">
       <div class="eforge-modes">
         <button class="eforge-mode ${eforgeMode==='sig'?'on':''}" onclick="setEforgeMode('sig')">Signature</button>
@@ -2715,42 +2738,41 @@ function renderEssenceDividing(){
   const inRc = edivRarity ? RARITY_INFO[edivRarity].color : '#8d8256';
   const rc = outRarity ? RARITY_INFO[outRarity].color : '#8d8256';
 
-  // pentagon arms = the OUTPUT (lower-rarity) essence pieces; satellite = the single input consumed.
-  // This inversion of the forge layout (one → many) reads as "decrafting" a stack apart.
+  // Exact reverse of the success craft: the SOURCE essence sits in the center, then on divide it
+  // bursts apart into its pieces, which fan back out to the arms (result-split animation). Each of
+  // the 5 arms carries count/5 of the output, so a x10 divide reads as 5 arms of x2, x25 as x5.
+  const perArm = div ? div.count/5 : 0;
+  const armBadge = perArm>1 ? `<div class="craft-slot-badge">×${perArm}</div>` : '';
   const arms = CRAFT_ARM_ANGLES.map(ang=>{
-    let slotHtml;
-    if (div){
-      const cls = (edivPhase==='result' || have>=1) ? 'filled' : 'filled missing';
-      slotHtml = `<div class="craftslot ${cls}" style="--rc:${rc}"><canvas class="eicon" data-rarity="${outRarity}" data-name="${edivName}" width="44" height="44"></canvas></div>`;
-    } else {
-      slotHtml = `<div class="craftslot"></div>`;
-    }
+    // arms are empty until the split — they appear only as the source bursts apart
+    const slotHtml = (edivPhase==='result' && div)
+      ? `<div class="craftslot filled" style="--rc:${rc}"><canvas class="eicon" data-rarity="${outRarity}" data-name="${edivName}" width="44" height="44"></canvas>${armBadge}</div>`
+      : `<div class="craftslot"></div>`;
     return `<div class="craft-arm" style="transform:rotate(${ang}deg)"><div class="craft-radius"><div class="craft-counter" style="transform:rotate(${-ang}deg)"><div class="craft-spin">${slotHtml}</div></div></div></div>`;
   }).join('');
 
-  const centerShow = edivPhase==='result';
-  const center = `<div class="craft-center"><div class="craft-center-inner ${centerShow?'show':''}" ${centerShow?`style="--rc:${rc};background:${rc}"`:''}>
-    ${centerShow?`<canvas class="eicon" data-rarity="${edivResult.rarity}" data-name="${edivName}" width="60" height="60"></canvas><div class="craft-center-badge">×${edivResult.count}</div>`:''}
+  // center = the source essence being divided (visible while idle/charging, fading as it splits)
+  const showSource = !!div;
+  const centerBadge = (div && edivPhase!=='result') ? `<div class="craft-center-badge">×${div.count}</div>` : '';
+  const center = `<div class="craft-center"><div class="craft-center-inner ${showSource?'show':''}" ${showSource?`style="--rc:${inRc};background:${inRc}"`:''}>
+    ${showSource?`<canvas class="eicon" data-rarity="${edivRarity}" data-name="${edivName}" width="60" height="60"></canvas>`:''}
+    ${centerBadge}
   </div></div>`;
-  // spin only — no result-success (the pieces stay fanned out in the arms rather than merging)
-  const pentagonState = edivPhase==='spinning' ? 'spinning' : '';
+
+  const pentagonState = edivPhase==='spinning' ? 'spinning' : edivPhase==='result' ? 'result-split' : '';
 
   let statusText;
   if (edivPhase==='spinning') statusText='Dividing…';
   else if (edivPhase==='result') statusText=`Made ${edivResult.count}×!`;
-  else statusText = div ? (have>=1?`1 → ${div.count}`:'Need 1') : 'Pick essence';
+  else statusText = div ? (have>=1?`1 → ${div.count} · have ${have}`:'Need 1') : 'Pick essence';
   const canDivide = div && have>=1 && edivPhase==='idle';
 
   return `
-    ${forgeHead('Divide', "openForgeMenu(null)")}
+    ${forgeHead('Essence Dividing', "openForgeMenu(null)")}
     <div class="craft-fixed">
       <div class="craft-top">
         <div class="craft-pentagon ${pentagonState}">${arms}${center}</div>
         <div class="craft-action">
-          <div class="ratecard" style="--rc:${inRc};width:64px;${have>=1?'':'filter:grayscale(1) brightness(0.7)'}">
-            <canvas class="eicon" data-rarity="${edivRarity||'common'}" data-name="${edivName}" width="24" height="24"></canvas>
-            <div class="rc-pct">×1 · have ${have}</div>
-          </div>
           <button class="craft-btn" ${canDivide?'':'disabled'} onclick="attemptEssenceDivide(false)">Divide</button>
           <button class="craft-btn" style="font-size:11px;padding:4px 12px" ${canDivide?'':'disabled'} onclick="attemptEssenceDivide(true)">All (${have})</button>
           <div class="craft-chance">${statusText}</div>
