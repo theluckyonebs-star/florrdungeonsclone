@@ -1778,7 +1778,7 @@ function renderPanel(){
   else if (openPanelName==='petal'){ root.classList.add('gallery'); root.innerHTML = renderPetalPanel(); }
   else if (openPanelName==='craft'){ root.classList.add('gallery','craft'); root.innerHTML = renderCraftPanel(); }
   else if (openPanelName==='forge'){ root.classList.add('gallery','craft','forge'); root.innerHTML = renderForgePanel(); }
-  else if (openPanelName==='essence'){ root.classList.add('gallery'); root.innerHTML = renderEssencePanel(); }
+  else if (openPanelName==='essence'){ root.classList.add('inventory'); root.innerHTML = renderEssencePanel(); }
   paintIcons(root);
   const newBody = root.querySelector('.panel-body');
   if (newBody && scrollTop) newBody.scrollTop = scrollTop;
@@ -1896,78 +1896,51 @@ function validInventoryKeys(){
     return true;
   });
 }
+// compact count text shared by the inventory + essence grids (1.2k / 34k style)
+function gridCount(cnt){ return cnt>9999 ? (cnt/1000).toFixed(0)+'k' : cnt>999 ? (cnt/1000).toFixed(1)+'k' : cnt; }
+// one inventory cell: a specific petal+tier. Owned cells are draggable onto a hotbar slot to
+// equip; empty (x0) cells stay dim and inert, impossible tiers get the diagonal slash.
+function petalInvCell(petalKey, tier){
+  const rc = RARITY_INFO[PETAL_RARITY[petalKey]].color;
+  if (!tierPossible(petalKey, tier)) return `<div class="gcell impossible"></div>`;
+  const cnt = inventory[invKey(petalKey, tier)]||0;
+  if (cnt<=0) return `<div class="gcell short" style="--rc:${rc}">
+    <canvas class="picn" data-petal="${petalKey}" data-tier="${tier}" width="40" height="40"></canvas>
+    <div class="gc-tier">${toRoman(tier)}</div>
+  </div>`;
+  return `<div class="gcell" draggable="true" ondragstart="dragPetalStart(event,'${petalKey}',${tier})" style="--rc:${rc}">
+    <canvas class="picn" data-petal="${petalKey}" data-tier="${tier}" width="40" height="40"></canvas>
+    <div class="gc-tier">${toRoman(tier)}</div>
+    <div class="gc-count">x${gridCount(cnt)}</div>
+  </div>`;
+}
+// Inventory — same grid layout as the Essence panel (rows = petal type, columns = tier), but
+// interactive: drag an owned cell onto a hotbar slot to equip it, or drag a hotbar slot here to
+// unequip. Blue + bottom-left so it still reads as your inventory, not a read-only gallery.
 function renderInventoryPanel(){
-  const matches = petal => PETAL_DEFS[petal].name.toLowerCase().includes(invSearch);
-  let body;
-  if (invStackMode){
-    const merged = {};
-    validInventoryKeys().forEach(k=>{
-      const [petal,tierStr] = k.split('|'); const tier = +tierStr;
-      if (!matches(petal)) return;
-      if (!merged[petal]) merged[petal] = { count:0, bestTier:tier };
-      merged[petal].count += inventory[k];
-      if (tier > merged[petal].bestTier) merged[petal].bestTier = tier;
-    });
-    const cards = Object.keys(merged).sort(byRarityThenName).map(petal=>{
-      const {count,bestTier} = merged[petal], def = PETAL_DEFS[petal];
-      const rc = RARITY_INFO[PETAL_RARITY[petal]].color;
-      return `<div class="istack" draggable="true" ondragstart="dragPetalStart(event,'${petal}',${bestTier})" style="--rc:${rc}">
-        <div class="pcount">x${count}</div>
-        <div class="ptier">${toRoman(bestTier)}</div>
-        <canvas class="picn" data-petal="${petal}" data-tier="${bestTier}" width="40" height="40"></canvas>
-        <div class="pname ${longNameCls(def.name)}">${def.name}</div>
-      </div>`;
-    }).join('');
-    body = `<div class="inv-grid">${cards || '<div class="inv-empty">No petals match.</div>'}</div>`;
-  } else {
-    const sections = [...RARITIES].reverse().map(rarity=>{
-      const keys = validInventoryKeys().filter(k=>{
-        const [petal] = k.split('|');
-        return PETAL_RARITY[petal]===rarity && matches(petal);
-      }).sort((a,b)=>{
-        const [pa,ta]=a.split('|'), [pb,tb]=b.split('|');
-        return pa===pb ? (+ta)-(+tb) : pa.localeCompare(pb);
-      });
-      if (!keys.length) return '';
-      const rc = RARITY_INFO[rarity].color;
-      const cards = keys.map(k=>{
-        const [petal,tierStr] = k.split('|'); const tier = +tierStr; const def = PETAL_DEFS[petal];
-        return `<div class="istack" draggable="true" ondragstart="dragPetalStart(event,'${petal}',${tier})" style="--rc:${rc}">
-          <div class="pcount">x${inventory[k]}</div>
-          <div class="ptier">${toRoman(tier)}</div>
-          <canvas class="picn" data-petal="${petal}" data-tier="${tier}" width="40" height="40"></canvas>
-          <div class="pname ${longNameCls(def.name)}">${def.name}</div>
-        </div>`;
-      }).join('');
-      return `<div class="inv-section-head" style="--rc:${rc}">${RARITY_INFO[rarity].name}</div><div class="inv-grid">${cards}</div>`;
-    }).join('');
-    body = sections || '<div class="inv-empty">No petals collected yet — go defeat some mobs!</div>';
-  }
-
+  const petalsSorted = Object.keys(PETAL_DEFS).sort(byRarityThenNameAsc);
+  const rows = petalsSorted.map(petalKey=>{
+    const cells = TIERS.map(tier=>petalInvCell(petalKey, tier)).join('');
+    return `<div class="grow">${cells}</div>`;
+  }).join('');
   return `
     <div class="panel-head"><h2>Inventory</h2><button class="x" onclick="closePanel()">✕</button></div>
     <div class="panel-body inv-dropzone" ondragover="allowDrop(event)" ondragleave="dragLeaveSlot(event)" ondrop="dropOnInventory(event)">
-      <div class="inv-sub">Drag a petal to equip it — drag a hotbar slot here to unequip it</div>
-      <div class="inv-toolbar">
-        <label><input type="checkbox" ${invStackMode?'checked':''} onchange="setInvStack(this)"> Stack</label>
-        <input class="inv-search" type="text" placeholder="Search petals..." value="${invSearch}" oninput="setInvSearch(this)">
-      </div>
-      ${body}
+      ${rows}
     </div>`;
 }
 
-/* ── Essence — read-only gallery, same grid as the Petal Gallery: one row per essence flavor
-     (Base first, then each signature essence), columns = rarity common→mythic. Purely a
-     display of what you're holding — you don't drag or spend from here (that's the Forge). ── */
+/* ── Essence — read-only inventory (blue, bottom-left, same corner as the petal Inventory), laid
+     out as a grid: one row per essence flavor (Base first, then each signature essence), columns
+     = rarity common→mythic. Display-only — you spend essence at the Forge, not from here. ── */
 function essenceCell(rarity, name){
   // signature essences don't exist below their startRarity — draw those columns as impossible
   if (name!=='base' && RARITIES.indexOf(rarity) < RARITIES.indexOf(SIGNATURE_ESSENCES[name].startRarity))
     return `<div class="gcell impossible"></div>`;
   const cnt = essence[essenceKey(rarity, name)]||0;
-  const cntText = cnt>9999 ? (cnt/1000).toFixed(0)+'k' : cnt>999 ? (cnt/1000).toFixed(1)+'k' : cnt;
   return `<div class="gcell ${cnt?'':'short'}" style="--rc:${RARITY_INFO[rarity].color}">
     <canvas class="eicon" data-rarity="${rarity}" data-name="${name}" width="40" height="40"></canvas>
-    <div class="gc-count">x${cntText}</div>
+    <div class="gc-count">x${gridCount(cnt)}</div>
   </div>`;
 }
 function renderEssencePanel(){
