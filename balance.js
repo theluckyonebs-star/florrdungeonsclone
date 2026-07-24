@@ -186,11 +186,13 @@ function rollHiddenJackpot(){
    there up through mythic is rolled independently on every kill (same as how generic drops
    already roll independently per rarity), each at 2x that rarity's DROP_RATE_TABLE percentage
    (capped at 100), still getting the normal zone/hidden jackpot rolls on top. ── */
+// NOTE: object keys are stable internal ids (used in save data and PETAL_RECIPES) — only the
+// display `name` is renamed. float=old "light", dense=old "heavy", venom=old "saliva".
 const SIGNATURE_ESSENCES = {
-  light:       { name:'Light',       startRarity:'common',    color:'#fff27a' },
-  heavy:       { name:'Heavy',       startRarity:'common',    color:'#8a8a8a' },
+  light:       { name:'Float',       startRarity:'common',    color:'#fff27a' },
+  heavy:       { name:'Dense',       startRarity:'common',    color:'#8a8a8a' },
   heal:        { name:'Heal',        startRarity:'common',    color:'#7eef6d' },
-  saliva:      { name:'Saliva',      startRarity:'unusual',   color:'#c7e04a' },
+  saliva:      { name:'Venom',       startRarity:'unusual',   color:'#c7e04a' },
   multi:       { name:'Multi',       startRarity:'rare',      color:'#8a5fd6' },
   exoskeleton: { name:'Exoskeleton', startRarity:'legendary', color:'#d97742' },
 };
