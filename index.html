@@ -196,30 +196,42 @@
   .panel.craft .panel-body{flex:0 0 270px;height:270px;}
   /* forge menus size to their content instead of the generic flex:1 rule (which would collapse
      to ~0 since the panel has no fixed height to grow into) */
-  .panel.forge .panel-body{flex:0 0 auto;padding:2px 8px 8px;}
-  .panel.forge .craft-fixed{padding:8px 6px 0;}
+  /* symmetric 12px breathing room on every side of every forge menu's content.
+     height:auto cancels the fixed 270px the shared .panel.craft rule would otherwise force
+     (forge panels carry both the craft and forge classes), which left dead space at the bottom */
+  .panel.forge .panel-body{flex:0 0 auto;height:auto;padding:12px;}
+  .panel.forge .craft-fixed{padding:12px;}
   /* pentagon and its action column sit side-by-side so the forge fills its width instead of
      leaving a big empty band on either side of a centered pentagon */
-  .panel.forge .craft-top{flex-direction:row;justify-content:center;align-items:center;gap:6px;margin-bottom:2px;}
+  .panel.forge .craft-top{flex-direction:row;justify-content:center;align-items:center;gap:8px;margin-bottom:0;}
   .panel.forge .craft-action{width:148px;}
+  /* a single ingredient shown in a plain petal/essence box (not a labelled card) — greys out
+     when you don't have it, same as the pentagon slots */
+  .forge-sat{width:54px;height:54px;border-radius:9px;box-sizing:border-box;flex-shrink:0;
+    border:3px solid color-mix(in srgb, var(--rc,#8d8256) 55%, black);background:var(--rc,#8d8256);
+    display:flex;align-items:center;justify-content:center;}
+  .forge-sat.missing{filter:grayscale(1) brightness(0.6);opacity:.6;}
+  .forge-sat canvas{width:40px;height:40px;}
   /* icon back-button that lives to the left of a sub-menu title */
   .panel-head .head-left{display:flex;align-items:center;gap:8px;}
   .backbtn{background:#b3a635;border:2px solid #7d7328;color:#3a3418;font-weight:900;font-size:15px;line-height:1;
     width:26px;height:26px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 2px 0 #7d7328;}
   .backbtn:hover{filter:brightness(1.1);}
   /* forge hub — 2×2 grid of big icon tiles, no descriptions */
-  .forge-tiles{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;padding:2px;}
+  .forge-tiles{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;padding:0;}
   .forge-tile{display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 6px;border-radius:11px;cursor:pointer;
     background:color-mix(in srgb, var(--rc,#8d8256) 30%, #fffef2);border:4px solid color-mix(in srgb, var(--rc,#8d8256) 55%, black);transition:transform .1s;}
   .forge-tile:hover{transform:translateY(-2px);}
   .forge-tile canvas{width:46px;height:46px;}
   .forge-tile .ft-label{font-size:12px;font-weight:900;color:#3a3418;text-shadow:0 1px 0 rgba(255,255,255,.3);letter-spacing:.01em;}
   /* essence-forging mode toggle (Signature / Base) */
-  .eforge-modes{display:flex;gap:6px;justify-content:center;margin-bottom:6px;}
+  .eforge-modes{display:flex;gap:6px;justify-content:center;margin-bottom:14px;}
   .eforge-mode{padding:5px 16px;border-radius:9px;border:2px solid #5c5430;background:#d0c473;color:#3a3418;font-weight:900;font-size:12px;cursor:pointer;opacity:.55;}
   .eforge-mode.on{opacity:1;background:#e8dc8a;box-shadow:0 2px 0 #5c5430;}
-  /* progressive selection grids inside forge sub-menus — a little breathing room between steps */
-  .forge-step{margin-top:6px;}
+  /* progressive selection grids inside forge sub-menus — a clear gap after the pentagon, and
+     breathing room between each subsequent step */
+  .forge-step{margin-top:10px;}
+  .forge-step:first-child{margin-top:0;}
   .forge-step .grow{grid-template-columns:repeat(6,52px);justify-content:center;gap:4px;}
   .forge-step .gcell{border-width:3px;}
   .forge-step .eicon,.forge-step .picn{width:34px;height:34px;}
@@ -2400,7 +2412,7 @@ function renderBasicForging(){
   let statusText;
   if (forgePhase==='spinning') statusText = batches>1 ? `Forging ${batches}×…` : 'Forging…';
   else if (forgePhase==='result') statusText = res.count>1 ? `Forged ${res.count}× Basic!` : `Forged Basic!`;
-  else statusText = canForge ? (batches>1?`Forge ${batches}×`:'Forge') : `Need ${BASIC_FORGE_COST} Essence`;
+  else statusText = batches>1 ? `Forge ${batches}×` : 'Forge';
 
   return `
     ${forgeHead('Basic Forging', "selectBasicRarity(null)")}
@@ -2542,9 +2554,8 @@ function renderPetalForging(){
       <div class="craft-top">
         <div class="craft-pentagon ${pentagonState}">${arms}${center}</div>
         <div class="craft-action">
-          <div class="ratecard" style="--rc:${rc};width:64px;${basicOk?'':'filter:grayscale(1) brightness(0.7)'}">
-            <canvas class="picn" data-petal="${BASIC_IDS[rarity]}" width="24" height="24"></canvas>
-            <div class="rc-pct">×1 · have ${basicHave}</div>
+          <div class="forge-sat ${basicOk?'':'missing'}" style="--rc:${rc}">
+            <canvas class="picn" data-petal="${BASIC_IDS[rarity]}" width="40" height="40"></canvas>
           </div>
           <button class="craft-btn" ${canForge?'':'disabled'} onclick="attemptPetalForge()">Forge</button>
           <div class="craft-chance">${statusText}</div>
@@ -2674,9 +2685,8 @@ function renderEssenceForging(){
       <div class="craft-top">
         <div class="craft-pentagon ${pentagonState}">${arms}${center}</div>
         <div class="craft-action">
-          <div class="ratecard" style="--rc:${satRarity?RARITY_INFO[satRarity].color:'#8d8256'};width:64px;${satHave>=1?'':'filter:grayscale(1) brightness(0.7)'}">
-            <canvas class="eicon" data-rarity="${satRarity||'common'}" data-name="base" width="24" height="24"></canvas>
-            <div class="rc-pct">×1 · have ${satHave}</div>
+          <div class="forge-sat ${satHave>=1?'':'missing'}" style="--rc:${satRarity?RARITY_INFO[satRarity].color:'#8d8256'}">
+            <canvas class="eicon" data-rarity="${satRarity||'common'}" data-name="base" width="40" height="40"></canvas>
           </div>
           <button class="craft-btn" ${ready && eforgePhase==='idle'?'':'disabled'} onclick="attemptEssenceForge()">Forge</button>
           <div class="craft-chance">${statusText}</div>
@@ -2751,12 +2761,11 @@ function renderEssenceDividing(){
     return `<div class="craft-arm" style="transform:rotate(${ang}deg)"><div class="craft-radius"><div class="craft-counter" style="transform:rotate(${-ang}deg)"><div class="craft-spin">${slotHtml}</div></div></div></div>`;
   }).join('');
 
-  // center = the source essence being divided (visible while idle/charging, fading as it splits)
+  // center = the source essence being divided (visible while idle/charging, fading as it splits) —
+  // no ×N badge on it; the pieces bursting out to the arms convey the split count
   const showSource = !!div;
-  const centerBadge = (div && edivPhase!=='result') ? `<div class="craft-center-badge">×${div.count}</div>` : '';
   const center = `<div class="craft-center"><div class="craft-center-inner ${showSource?'show':''}" ${showSource?`style="--rc:${inRc};background:${inRc}"`:''}>
     ${showSource?`<canvas class="eicon" data-rarity="${edivRarity}" data-name="${edivName}" width="60" height="60"></canvas>`:''}
-    ${centerBadge}
   </div></div>`;
 
   const pentagonState = edivPhase==='spinning' ? 'spinning' : edivPhase==='result' ? 'result-split' : '';
@@ -2764,7 +2773,7 @@ function renderEssenceDividing(){
   let statusText;
   if (edivPhase==='spinning') statusText='Dividing…';
   else if (edivPhase==='result') statusText=`Made ${edivResult.count}×!`;
-  else statusText = div ? (have>=1?`1 → ${div.count} · have ${have}`:'Need 1') : 'Pick essence';
+  else statusText = div ? `1 → ${div.count}` : 'Pick essence';
   const canDivide = div && have>=1 && edivPhase==='idle';
 
   return `
@@ -2774,7 +2783,7 @@ function renderEssenceDividing(){
         <div class="craft-pentagon ${pentagonState}">${arms}${center}</div>
         <div class="craft-action">
           <button class="craft-btn" ${canDivide?'':'disabled'} onclick="attemptEssenceDivide(false)">Divide</button>
-          <button class="craft-btn" style="font-size:11px;padding:4px 12px" ${canDivide?'':'disabled'} onclick="attemptEssenceDivide(true)">All (${have})</button>
+          <button class="craft-btn" style="font-size:11px;padding:4px 12px" ${canDivide?'':'disabled'} onclick="attemptEssenceDivide(true)">All</button>
           <div class="craft-chance">${statusText}</div>
         </div>
       </div>
