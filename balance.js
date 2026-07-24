@@ -55,7 +55,7 @@ const RARITY_INFO = {
 };
 // which rarity (→ container color) each petal belongs to — fixed forever, unrelated to tier
 const PETAL_RARITY = {
-  basic:'common', rose:'common', rock:'common', light:'common', stinger:'common',
+  rose:'common', rock:'common', light:'common', stinger:'common',
   faster:'unusual', leaf:'unusual', honey:'unusual',
   web:'rare', mandible:'rare', dahlia:'rare',
   heavy:'epic', pollen:'epic',
@@ -179,16 +179,52 @@ function rollHiddenJackpot(){
   for (const h of HIDDEN_JACKPOTS){ if (Math.random()*100 < h.pct) return h.mult; }
   return 1;
 }
+/* ── Signature essences — flavored essence tied to a specific petal or set of petals, spent at
+   the Forge (see forging menus further down). Each mob's `sigDrops` lists which signature
+   essences it can drop, on top of its normal generic (rarity-only) drops from `drops` above.
+   `startRarity` is only the LOWEST rarity a signature essence can drop at — every rarity from
+   there up through mythic is rolled independently on every kill (same as how generic drops
+   already roll independently per rarity), each at 2x that rarity's DROP_RATE_TABLE percentage
+   (capped at 100), still getting the normal zone/hidden jackpot rolls on top. ── */
+const SIGNATURE_ESSENCES = {
+  light:       { name:'Light',       startRarity:'common',    color:'#fff27a' },
+  heavy:       { name:'Heavy',       startRarity:'common',    color:'#8a8a8a' },
+  heal:        { name:'Heal',        startRarity:'common',    color:'#7eef6d' },
+  saliva:      { name:'Saliva',      startRarity:'unusual',   color:'#c7e04a' },
+  multi:       { name:'Multi',       startRarity:'rare',      color:'#8a5fd6' },
+  exoskeleton: { name:'Exoskeleton', startRarity:'legendary', color:'#d97742' },
+};
+// every rarity from a signature essence's startRarity through mythic, ascending
+function sigEssenceRarities(sigId){
+  const start = RARITIES.indexOf(SIGNATURE_ESSENCES[sigId].startRarity);
+  return RARITIES.slice(start);
+}
+function sigEssenceDropPct(sigId, level, rarity){
+  const table = DROP_RATE_TABLE[level];
+  if (!table) return 0;
+  return Math.min(100, (table[rarity]||0) * 2);
+}
 function rollMobDrops(m){
   const table = DROP_RATE_TABLE[m.level];
   if (!table) return;
   const zt = zoneAndSubTierForLevel(m.level);
-  for (const rarity of MOB_DEFS[m.type].drops){
+  const def = MOB_DEFS[m.type];
+  for (const rarity of def.drops){
     const pct = table[rarity] || 0;
     if (Math.random()*100 < pct){
       const zoneMult = zt ? rollZoneJackpot(rarity, zt.zoneNum, zt.subTier) : 1;
       const count = zoneMult * rollHiddenJackpot();
       spawnEssencePickup(m.x, m.y, rarity, count);
+    }
+  }
+  for (const sigId of (def.sigDrops||[])){
+    for (const rarity of sigEssenceRarities(sigId)){
+      const pct = sigEssenceDropPct(sigId, m.level, rarity);
+      if (Math.random()*100 < pct){
+        const zoneMult = zt ? rollZoneJackpot(rarity, zt.zoneNum, zt.subTier) : 1;
+        const count = zoneMult * rollHiddenJackpot();
+        spawnEssencePickup(m.x, m.y, rarity, count, sigId);
+      }
     }
   }
 }
@@ -197,7 +233,6 @@ function rollMobDrops(m){
    PETAL DEFINITIONS
    ══════════════════════════════════════════ */
 const PETAL_DEFS = {
-  basic:    { name:'Basic',    color:'#f2f2f2', shape:'circle', health:10, damage:10, reload:2.5, desc:'A balanced starting petal.' },
   wing:     { name:'Wing',     color:'#eaeaea', shape:'drop',   health:10, damage:10, reload:2.1, reach:36, desc:"Extends a little further when attacking and reloads a bit faster." },
   leaf:     { name:'Leaf',     color:'#4ade80', shape:'leaf',   health:10, damage:10, reload:2.5, healPerSec:1, desc:'Passively heals the flower a little while equipped.' },
   rose:     { name:'Rose',     color:'#f472b6', shape:'circle', health:100, damage:2,  reload:2.5, armTime:0.5, healBurst:30, defensive:true, desc:"Deals minimal damage but has hugely improved HP. Defensive — doesn't expand outward when you attack. Arms for 0.5s once you need healing, then self-destructs for a big heal." },
@@ -215,17 +250,55 @@ const PETAL_DEFS = {
   heavy:    { name:'Heavy',    color:'#6b6b6b', shape:'rock',   health:60, damage:10, reload:4.0, desc:'Significantly higher HP than normal, at the cost of a slow reload.' },
   moon:     { name:'Moon',     color:'#dfe7ff', shape:'crescent',health:500,damage:10, reload:10.0, desc:'Ridiculous amounts of HP, but an extremely slow reload.' },
 };
-// Forging — a guaranteed-success way to obtain ANY petal at tier 1, spending essence of that
-// petal's rarity. Shown across a 5-slot craft-pentagon layout (so e.g. a cost of 10 fills 2
-// essence per slot). A rarity left out of this table costs 5 by default — add a line here to
-// give a new/adjusted rarity its own cost.
-const FORGE_COST_BY_RARITY = { common:5, unusual:5, rare:5, epic:10, legendary:10, mythic:10 };
-function forgeCost(rarity){ return FORGE_COST_BY_RARITY[rarity] ?? 5; }
-// combine CRAFT_COST of the same petal+tier for a chance at the next tier up. CRAFT_CHANCE is
-// keyed by CURRENT tier (not rarity) and applies the same to every petal regardless of rarity —
-// tier 6 has no entry since there's no tier 7 to craft into.
+// Basic — no longer a single fixed-rarity filler petal. Basic Forging (see below) lets you pick
+// ANY rarity to forge it at, so it exists as 6 real, separate, fully tierable petals (one per
+// rarity) — every other petal's forge recipe spends "1 basic of that rarity" as an ingredient.
+function basicPetalId(rarity){ return 'basic' + rarity[0].toUpperCase() + rarity.slice(1); }
+const BASIC_IDS = {};
+RARITIES.forEach(rarity=>{
+  const id = basicPetalId(rarity);
+  BASIC_IDS[rarity] = id;
+  PETAL_DEFS[id] = { name:'Basic', color:'#f2f2f2', shape:'circle', health:10, damage:10, reload:2.5, desc:'A balanced petal — every other petal is forged from one of these, matching its own rarity.' };
+  PETAL_RARITY[id] = rarity;
+});
+// Basic Forging — pick a rarity, spend 5 base essence of that rarity (sig essence not accepted),
+// get 1 fresh Basic petal at that rarity's starting tier. Flat cost regardless of rarity.
+const BASIC_FORGE_COST = 5;
+// Petal Forging — every other petal's recipe: 1 basic of the petal's own rarity + exactly 5
+// signature essence (also at the petal's own rarity), split across the listed sig essence ids.
+const PETAL_RECIPES = {
+  light:    { light:5 },
+  rock:     { heavy:5 },
+  stinger:  { heavy:3, light:2 },
+  rose:     { heal:5 },
+  faster:   { light:5 },
+  honey:    { saliva:4, heavy:1 },
+  leaf:     { heal:3, light:2 },
+  dahlia:   { multi:2, heal:3 },
+  mandible: { saliva:2, heavy:3 },
+  web:      { multi:5 },
+  heavy:    { heavy:5 },
+  pollen:   { multi:3, light:2 },
+  tulip:    { multi:1, heal:4 },
+  wing:     { exoskeleton:1, light:2, heavy:2 },
+  moon:     { heavy:5 },
+  thirdEye: { exoskeleton:5 },
+};
+// combine CRAFT_COST of the same petal+tier for a chance at the next tier up. Success chance is
+// keyed by the petal's RARITY (not its current tier) — every tier-up attempt for a given petal
+// has the same odds regardless of which tier it's currently at. Mythics can't be tiered at all.
 const CRAFT_COST = 5;
-const CRAFT_CHANCE = { 1:50, 2:25, 3:10, 4:5, 5:2 };
+const CRAFT_CHANCE_BY_RARITY = { common:100, unusual:85, rare:70, epic:55, legendary:40, mythic:0 };
+// Essence Dividing — decraft 1 essence (base or signature, same flavor preserved) into several of
+// a lower rarity. Common can't be divided further. Legendary/mythic are special-cased: they don't
+// follow the plain "5 of one tier down" rule, they jump straight to epic at a bigger multiplier.
+const ESSENCE_DIVIDE = {
+  unusual:   { rarity:'common', count:5 },
+  rare:      { rarity:'unusual', count:5 },
+  epic:      { rarity:'rare', count:5 },
+  legendary: { rarity:'epic', count:10 },
+  mythic:    { rarity:'epic', count:25 },
+};
 
 /* ══════════════════════════════════════════
    MOB DEFINITIONS
@@ -296,12 +369,12 @@ const MOB_DEFS = {
   ant: {
     name:'Ant', r:20, health:122, contactDmg:17.5, petalDmg:12.5, mass:3, friction:7,
     speed:200, behavior:'neutral', color:'#6b3f1d', weight:25,
-    drops:ALL_RARITIES_DROP,
+    drops:ALL_RARITIES_DROP, sigDrops:['light'],
   },
   ladybug: {
     name:'Ladybug', r:22, health:100, contactDmg:10, petalDmg:7.5, mass:1.3, friction:6,
     speed:60, behavior:'passive', color:'#e6352b', weight:30,
-    drops:ALL_RARITIES_DROP,
+    drops:ALL_RARITIES_DROP, sigDrops:['light','heal'],
     // exception to its own 'passive' tag — high-level ladybugs fight back once provoked
     retaliateLevel:30,
     retaliateDesc:(def,fightsBack)=> fightsBack
@@ -311,7 +384,7 @@ const MOB_DEFS = {
   bee: {
     name:'Bee', r:16, health:67, contactDmg:30, petalDmg:17.5, mass:1.2, friction:5,
     speed:200, behavior:'neutral-swerve', color:'#ffcf33', weight:20,
-    drops:ALL_RARITIES_DROP,
+    drops:ALL_RARITIES_DROP, sigDrops:['light'],
     // exception to its own 'neutral-swerve' tag — low-level bees are all bark, no bite
     retaliateLevel:15,
     retaliateDesc:(def,fightsBack)=> fightsBack
@@ -321,17 +394,17 @@ const MOB_DEFS = {
   spider: {
     name:'Spider', r:18, health:71, contactDmg:17.5, petalDmg:11.25, mass:8, friction:8,
     speed:240, behavior:'hostile', aggroRange:260, color:'#2b2b33', weight:15,
-    drops:ALL_RARITIES_DROP,
+    drops:ALL_RARITIES_DROP, sigDrops:['light','saliva','multi','exoskeleton'],
   },
   rock: {
     name:'Rock', r:30, health:289, contactDmg:5, petalDmg:11.25, mass:45, friction:12,
     speed:0, behavior:'stationary', color:'#8d8d94', weight:10,
-    drops:ALL_RARITIES_DROP,
+    drops:ALL_RARITIES_DROP, sigDrops:['heavy'],
   },
   beetle: {
     name:'Beetle', r:33, health:133, contactDmg:27.5, petalDmg:16.25, mass:5, friction:7,
     speed:300, behavior:'hostile', aggroRange:120, color:'#3a2a6b', weight:12, minZone:1, // can't spawn in the Garden zone
-    drops:ALL_RARITIES_DROP,
+    drops:ALL_RARITIES_DROP, sigDrops:['heavy','saliva','exoskeleton'],
   },
 };
 // the only levels a mob can actually spawn at — every ZONES entry's `levels` array (top of

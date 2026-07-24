@@ -312,8 +312,8 @@ addEventListener('keydown', e => {
   if (k==='z') togglePanel('inventory');
   else if (k==='v') togglePanel('mob');
   else if (k==='b') togglePanel('petal');
-  else if (k==='c') togglePanel('craft');
-  else if (k==='y') togglePanel('forge');
+  else if (k==='c') openForgeMenu('tiering');
+  else if (k==='y') openForgeMenu(null);
   else if (k==='x') togglePanel('essence');
   else if (k==='r') setActiveLoadout(1-activeLoadout);
   else if (k>='1' && k<='5') quickSwapSlot(k.charCodeAt(0) - '1'.charCodeAt(0));
@@ -402,7 +402,7 @@ function grantXp(amount){
   const newSlots = slotsForLevel(playerLevel);
   if (loadouts.length && newSlots > loadouts[0].length){
     for (let li=0; li<loadouts.length; li++){
-      while (loadouts[li].length < newSlots) loadouts[li].push({ petal:'basic', tier:1 });
+      while (loadouts[li].length < newSlots) loadouts[li].push({ petal:BASIC_IDS.common, tier:1 });
     }
     rebuildInstances(); // also recomputes max health via applyMaxHealthChange()
   } else {
@@ -467,7 +467,9 @@ let essence = {};
 function essenceKey(rarity, name='base'){ return rarity+'|'+name; }
 // names too long to fit one line in a slot (e.g. "Third Eye") render smaller instead of wrapping
 function longNameCls(name){ return name.length > 7 ? 'long' : ''; }
-function defaultLoadout(){ return Array.from({length:slotsForLevel(playerLevel)}, ()=>({petal:'basic',tier:1})); }
+// new players (and newly-unlocked slots) start equipped with real, tier-1 common Basic petals —
+// pre-equipped for free exactly once, just like starting equipment, not conjured filler
+function defaultLoadout(){ return Array.from({length:slotsForLevel(playerLevel)}, ()=>({petal:BASIC_IDS.common,tier:1})); }
 
 // max flower HP = the level curve, plus a stacking bonus from any equipped Dahlia/Tulip
 // (FLOWER_HP_PETALS), scaled by that petal's own tier progress
@@ -489,6 +491,7 @@ function applyMaxHealthChange(){
 function rebuildInstances(){
   player.instances = [];
   loadouts[activeLoadout].forEach((slot,i)=>{
+    if (slot.petal==null) return; // empty slot — contributes nothing to the ring
     const def = PETAL_DEFS[slot.petal];
     const parts = def.parts||1;
     for (let p=0;p<parts;p++){
@@ -536,7 +539,7 @@ function slotRect(container, li, i){
 }
 const FLY_SWAP_DELAY = 220; // matches flySwapIcon's position/size transition duration
 function flySwapIcon(fromRect, toRect, petal, tier){
-  if (!fromRect || !toRect || petal==='basic') return;
+  if (!fromRect || !toRect || petal==null) return;
   const fromSize = Math.max(18, Math.min(fromRect.width, fromRect.height) - 6);
   const toSize = Math.max(18, Math.min(toRect.width, toRect.height) - 6);
   const rc = RARITY_INFO[PETAL_RARITY[petal]].color;
@@ -573,23 +576,24 @@ function flySwapIcon(fromRect, toRect, petal, tier){
 /* ── pickups — mobs now drop essence (rarity-only), never petals directly ── */
 const pickups = [];
 const PICKUP_STACK_RANGE = 50; // nearby same-rarity essence drops merge into one stacked pickup instead of overlapping
-function spawnEssencePickup(x,y,rarity,count){
+function spawnEssencePickup(x,y,rarity,count,name){
   count = count||1;
+  name = name||'base';
   // scatter drops around the kill point so several rarities dropping at once from the same
   // kill land visibly apart instead of stacking invisibly on the exact same spot
   const ox = x + rand(-24,24), oy = y + rand(-24,24);
-  const nearby = pickups.find(p => p.rarity===rarity && len(p.x-ox, p.y-oy) < PICKUP_STACK_RANGE);
+  const nearby = pickups.find(p => p.rarity===rarity && p.name===name && len(p.x-ox, p.y-oy) < PICKUP_STACK_RANGE);
   if (nearby){ nearby.count += count; return; }
-  pickups.push({ x:ox, y:oy, rarity, count, vx:rand(-40,40), vy:rand(-40,40), born:performance.now()/1000 });
+  pickups.push({ x:ox, y:oy, rarity, name, count, vx:rand(-40,40), vy:rand(-40,40), born:performance.now()/1000 });
 }
 function collectPickup(p){
-  const k = essenceKey(p.rarity);
+  const k = essenceKey(p.rarity, p.name||'base');
   essence[k] = (essence[k]||0)+(p.count||1);
   if (openPanelName==='essence') renderPanel();
   scheduleSave();
 }
 function grantDevMode(){
-  Object.keys(PETAL_DEFS).filter(p=>p!=='basic').forEach(petal=>{
+  Object.keys(PETAL_DEFS).forEach(petal=>{
     TIERS.forEach(tier=>{
       if (tier < RARITY_START_TIER[PETAL_RARITY[petal]]) return; // petals never exist below their rarity's starting tier
       const k = invKey(petal, tier);
@@ -601,6 +605,12 @@ function grantDevMode(){
     const k = essenceKey(rarity);
     essence[k] = (essence[k]||0) + 1000;
   });
+  Object.keys(SIGNATURE_ESSENCES).forEach(sigId=>{
+    sigEssenceRarities(sigId).forEach(rarity=>{
+      const k = essenceKey(rarity, sigId);
+      essence[k] = (essence[k]||0) + 1000;
+    });
+  });
   if (openPanelName) renderPanel();
   scheduleSave();
 }
@@ -608,7 +618,7 @@ window.grantDevMode = grantDevMode;
 // mirror of grantDevMode — subtracts exactly what that grants (floored at 0), so repeated
 // clicks of either button can't push a count negative or over-correct
 function undoDevMode(){
-  Object.keys(PETAL_DEFS).filter(p=>p!=='basic').forEach(petal=>{
+  Object.keys(PETAL_DEFS).forEach(petal=>{
     TIERS.forEach(tier=>{
       if (tier < RARITY_START_TIER[PETAL_RARITY[petal]]) return;
       const k = invKey(petal, tier);
@@ -618,6 +628,12 @@ function undoDevMode(){
   RARITIES.forEach(rarity=>{
     const k = essenceKey(rarity);
     essence[k] = Math.max(0, (essence[k]||0) - 1000);
+  });
+  Object.keys(SIGNATURE_ESSENCES).forEach(sigId=>{
+    sigEssenceRarities(sigId).forEach(rarity=>{
+      const k = essenceKey(rarity, sigId);
+      essence[k] = Math.max(0, (essence[k]||0) - 1000);
+    });
   });
   if (openPanelName) renderPanel();
   scheduleSave();
@@ -1187,7 +1203,7 @@ function drawPickups(){
     // capsule holding a petal icon (essence has no petal identity)
     ctx.save();
     ctx.translate(cx, cy); ctx.scale(pulse, pulse);
-    drawEssenceIcon(ctx, p.rarity, 0, 0, 9);
+    drawEssenceIcon(ctx, p.rarity, 0, 0, 9, p.name);
     ctx.restore();
 
     // stacked-count badge — same dark/gold "×N" look as the craft menu's batch badge,
@@ -1428,12 +1444,15 @@ function shadeColor(hex, pct){
 // small white blobs that grow with rarity — a shared radius multiplier used both for
 // ground pickups (world-space) and DOM icon boxes, so the two contexts stay visually consistent
 const ESSENCE_RARITY_SCALE = { common:0.7, unusual:0.8, rare:0.9, epic:1.0, legendary:1.15, mythic:1.35 };
-function drawEssenceIcon(ctx, rarity, cx, cy, baseR){
+function drawEssenceIcon(ctx, rarity, cx, cy, baseR, name){
   const r = baseR * (ESSENCE_RARITY_SCALE[rarity]||1);
   const rc = RARITY_INFO[rarity].color;
+  // signature essences fill with their own flavor color instead of plain white, so they read
+  // as a distinct essence type at a glance while still keeping the rarity-colored ring
+  const sig = name && name!=='base' ? SIGNATURE_ESSENCES[name] : null;
   ctx.save(); ctx.translate(cx,cy);
   ctx.beginPath(); ctx.arc(0,0,r,0,TAU);
-  ctx.fillStyle = '#fdfdfd'; ctx.fill();
+  ctx.fillStyle = sig ? sig.color : '#fdfdfd'; ctx.fill();
   ctx.lineWidth = Math.max(1.4, r*0.22); ctx.strokeStyle = rc; ctx.stroke();
   ctx.restore();
 }
@@ -1467,6 +1486,7 @@ function drawTierAura(ctx, r, tier){
   }
 }
 function drawPetalIcon(ctx, id, cx, cy, r, tier){
+  if (id==null) return; // empty slot — nothing to draw
   const def = PETAL_DEFS[id];
   const shape = def.shape || 'circle';
   const col = def.color;
@@ -1601,6 +1621,22 @@ function renderLoadoutBar(){
     row.classList.toggle('active', activeLoadout===li);
     loadouts[li].forEach((slot,i)=>{
       const el = row.children[i];
+      if (slot.petal==null){
+        el.style.setProperty('--rc', '#3a3a3a');
+        const lbnameEl = el.querySelector('.lbname');
+        lbnameEl.textContent = '';
+        lbnameEl.classList.remove('long');
+        el.querySelector('.lbcover').style.height = '0%';
+        el.querySelector('.lbtier').textContent = '';
+        const cacheKey = 'empty';
+        const ck = 'li'+li+'@'+i;
+        if (loadoutIconCache[ck] !== cacheKey){
+          const cv = el.querySelector('.lbicon'), c = cv.getContext('2d');
+          c.clearRect(0,0,30,30);
+          loadoutIconCache[ck] = cacheKey;
+        }
+        return;
+      }
       const def = PETAL_DEFS[slot.petal];
       const parts = def.parts||1;
       // slot fill = the least-ready part: reload progress while broken, current HP fraction while alive
@@ -1642,14 +1678,41 @@ let openPanelName = null;
 let invStackMode = true; // stacked by default — the "Stack" checkbox is how you unstack
 let invSearch = '';
 let dragData = null;
-let craftSelection = null; // {petal, tier} or null
+let craftSelection = null; // {petal, tier} or null — used by the Petal Tiering submenu
 let craftBulk = false;     // shift-click: keep re-attempting with whatever's left until <CRAFT_COST remains
 let craftPhase = 'idle';   // 'idle' | 'spinning' | 'result'
 let craftResult = null;    // set once the spin resolves: {success, petal, tier, nextTier, destroyedSlots, successCount, failCount, batches, totalLost}
-let forgeSelection = null; // petal id or null — which petal's recipe is being viewed
-let forgeBulk = false;     // shift-click: forge every batch your essence affords at once
+
+// The Forge is a hub of 5 sub-menus — forgeMenu picks which one renders.
+// null = the hub chooser itself.
+let forgeMenu = null; // null | 'basic' | 'petalForge' | 'essenceForge' | 'essenceDivide' | 'tiering'
+
+// Basic Forging — pick a rarity, spend BASIC_FORGE_COST base essence of it, get 1 fresh Basic.
+let forgeSelection = null; // rarity string or null
+let forgeBulk = false;
 let forgePhase = 'idle';   // 'idle' | 'spinning' | 'result'
-let forgeResult = null;    // set once the spin resolves: {petal, tier, count}
+let forgeResult = null;    // {rarity, tier, count}
+
+// Petal Forging — pick a petal, spend 1 Basic (of its rarity) + its PETAL_RECIPES ingredients.
+let pforgeSelection = null; // petal id or null
+let pforgeBulk = false;
+let pforgePhase = 'idle';
+let pforgeResult = null;    // {petal, tier, count}
+
+// Essence Forging — two conversion directions, both spend 5-of-one-thing + 1-of-another to
+// upgrade an essence stack to a higher rarity.
+let eforgeMode = 'sig';      // 'sig' = upgrade a signature essence; 'base' = upgrade a base essence
+let eforgeSigId = null;      // which signature essence flavor (used by both modes)
+let eforgeFromRarity = null; // the rarity being spent 5x (sig mode) / 1x (base mode)
+let eforgeToRarity = null;   // the higher target rarity
+let eforgePhase = 'idle';
+let eforgeResult = null;
+
+// Essence Dividing — decraft 1 essence (base or a signature flavor) into several of a lower rarity.
+let edivName = 'base';  // 'base' or a signature essence id
+let edivRarity = null;
+let edivPhase = 'idle';
+let edivResult = null;
 
 /* ── Crafting — combine CRAFT_COST of the same petal+tier for a chance at the next tier up
      (CRAFT_COST and CRAFT_CHANCE now live in balance.js) ── */
@@ -1659,8 +1722,20 @@ const CRAFT_RESULT_HOLD = 1.3; // seconds the resolved state is shown before ret
 function togglePanel(name){ openPanelName===name ? closePanel() : openPanel(name); }
 function openPanel(name){
   openPanelName = name; craftSelection = null; craftBulk = false; craftPhase = 'idle'; craftResult = null;
+  forgeMenu = null;
   forgeSelection = null; forgeBulk = false; forgePhase = 'idle'; forgeResult = null;
+  pforgeSelection = null; pforgeBulk = false; pforgePhase = 'idle'; pforgeResult = null;
+  eforgeMode = 'sig'; eforgeSigId = null; eforgeFromRarity = null; eforgeToRarity = null; eforgePhase = 'idle'; eforgeResult = null;
+  edivName = 'base'; edivRarity = null; edivPhase = 'idle'; edivResult = null;
   document.getElementById('panelBackdrop').classList.add('show');
+  renderPanel();
+}
+// opens the Forge panel straight into a given sub-menu (or the hub chooser if menu is null) —
+// used by the Y/C hotkeys and by every "back" link inside the sub-menus
+function openForgeMenu(menu){
+  if (openPanelName==='forge' && forgeMenu===menu){ closePanel(); return; }
+  openPanel('forge');
+  forgeMenu = menu;
   renderPanel();
 }
 function closePanel(){
@@ -1679,8 +1754,7 @@ function renderPanel(){
   if (openPanelName==='inventory'){ root.classList.add('inventory'); root.innerHTML = renderInventoryPanel(); }
   else if (openPanelName==='mob'){ root.classList.add('gallery','wide'); root.innerHTML = renderMobPanel(); }
   else if (openPanelName==='petal'){ root.classList.add('gallery'); root.innerHTML = renderPetalPanel(); }
-  else if (openPanelName==='craft'){ root.classList.add('gallery','craft'); root.innerHTML = renderCraftPanel(); }
-  else if (openPanelName==='forge'){ root.classList.add('gallery','forge'); root.innerHTML = renderForgePanel(); }
+  else if (openPanelName==='forge'){ root.classList.add('gallery','craft','forge'); root.innerHTML = renderForgePanel(); }
   else if (openPanelName==='essence'){ root.classList.add('inventory'); root.innerHTML = renderEssencePanel(); }
   paintIcons(root);
   const newBody = root.querySelector('.panel-body');
@@ -1700,7 +1774,7 @@ function paintIcons(root){
   root.querySelectorAll('canvas.eicon[data-rarity]').forEach(cv=>{
     const ctx2 = cv.getContext('2d'), s = cv.width;
     ctx2.clearRect(0,0,s,s);
-    drawEssenceIcon(ctx2, cv.dataset.rarity, s/2, s/2, s*0.28);
+    drawEssenceIcon(ctx2, cv.dataset.rarity, s/2, s/2, s*0.28, cv.dataset.name);
   });
 }
 
@@ -1742,7 +1816,7 @@ function dropOnSlot(e, li, i){
     const k = invKey(petal, tier);
     if (!inventory[k] || inventory[k]<=0) return;
     const old = loadouts[li][i];
-    if (old.petal!=='basic'){ const ok=invKey(old.petal,old.tier); inventory[ok]=(inventory[ok]||0)+1; }
+    if (old.petal!=null){ const ok=invKey(old.petal,old.tier); inventory[ok]=(inventory[ok]||0)+1; }
     inventory[k]--;
     loadouts[li][i] = { petal, tier };
     if (li===activeLoadout) rebuildInstances();
@@ -1778,10 +1852,10 @@ function dropOnInventory(e){
   const {li, i} = dragData;
   dragData = null;
   const old = loadouts[li][i];
-  if (old.petal==='basic') return;   // basic is the default filler, not a real inventory item
+  if (old.petal==null) return;   // already empty, nothing to unequip
   const ok = invKey(old.petal, old.tier);
   inventory[ok] = (inventory[ok]||0) + 1;
-  loadouts[li][i] = { petal:'basic', tier:1 };
+  loadouts[li][i] = { petal:null, tier:1 };
   if (li===activeLoadout) rebuildInstances();
   renderPanel();
   scheduleSave();
@@ -1870,11 +1944,29 @@ function renderEssencePanel(){
       <div class="pname">${RARITY_INFO[rarity].name}</div>
     </div>`;
   }).join('');
+  // each signature essence can exist at any rarity from its startRarity up through mythic —
+  // show one card per rarity actually reachable, so a card here always matches a real stack key
+  const sigIds = Object.keys(SIGNATURE_ESSENCES).sort((a,b)=>
+    RARITIES.indexOf(SIGNATURE_ESSENCES[a].startRarity) - RARITIES.indexOf(SIGNATURE_ESSENCES[b].startRarity));
+  const sigCards = sigIds.flatMap(sigId=>{
+    const sig = SIGNATURE_ESSENCES[sigId];
+    return sigEssenceRarities(sigId).map(rarity=>{
+      const cnt = essence[essenceKey(rarity, sigId)]||0;
+      const rc = RARITY_INFO[rarity].color;
+      return `<div class="istack" style="--rc:${rc}">
+        <div class="pcount">x${cnt}</div>
+        <canvas class="eicon" data-rarity="${rarity}" data-name="${sigId}" width="40" height="40"></canvas>
+        <div class="pname">${RARITY_INFO[rarity].name} ${sig.name}</div>
+      </div>`;
+    });
+  }).join('');
   return `
     <div class="panel-head"><h2>Essence</h2><button class="x" onclick="closePanel()">✕</button></div>
     <div class="panel-body">
       <div class="inv-sub">Spend essence at the Forge (Y) to obtain a petal</div>
       <div class="inv-grid">${cards}</div>
+      <div class="inv-sub">Signature essence</div>
+      <div class="inv-grid">${sigCards}</div>
     </div>`;
 }
 
@@ -1896,7 +1988,8 @@ function renderMobPanel(){
 // has this petal been obtained at any tier? (only forging ever sets discoveredPetals now)
 function petalAnyDiscovered(petal){ return TIERS.some(t=>discoveredPetals.has(invKey(petal,t))); }
 // zone-jackpot rows only — the hidden jackpots (5%/1%/0.1%) are deliberately never shown here
-function essenceRateCard(rarity, pct, zoneNum, subTier){
+function essenceRateCard(rarity, pct, zoneNum, subTier, name){
+  const sig = name && name!=='base' ? SIGNATURE_ESSENCES[name] : null;
   const activeTiers = zoneJackpotTiers(rarity).filter(t => t.zone <= zoneNum);
   const jackpotLines = activeTiers.slice().reverse().map(t=>{
     const zonesPast = zoneNum - t.zone;
@@ -1904,8 +1997,8 @@ function essenceRateCard(rarity, pct, zoneNum, subTier){
     return `<div class="rc-multi">×${t.mult}: ${chance}%</div>`;
   }).join('');
   return `<div class="ratecard" style="--rc:${RARITY_INFO[rarity].color}">
-    <canvas class="eicon" data-rarity="${rarity}" width="30" height="30"></canvas>
-    <div class="rc-name">${RARITY_INFO[rarity].name} Essence</div>
+    <canvas class="eicon" data-rarity="${rarity}" data-name="${name||'base'}" width="30" height="30"></canvas>
+    <div class="rc-name">${sig ? sig.name : RARITY_INFO[rarity].name} Essence</div>
     <div class="rc-pct">${pct}%</div>
     ${jackpotLines}
   </div>`;
@@ -1914,7 +2007,15 @@ function showMobTip(e, mobKey, level){
   e.stopPropagation();
   const def = MOB_DEFS[mobKey], scale = mobLevelScale(level), table = DROP_RATE_TABLE[level] || {};
   const zt = zoneAndSubTierForLevel(level) || {zoneNum:0, subTier:1};
-  const cards = def.drops.filter(rarity => (table[rarity]||0) > 0).map(rarity => essenceRateCard(rarity, table[rarity], zt.zoneNum, zt.subTier)).join('');
+  // one row per essence type the mob can drop (generic rarities + its signature essences),
+  // sorted low to high rarity so the row order tracks how hard each essence is to get
+  const rows = [
+    ...def.drops.filter(rarity => (table[rarity]||0) > 0).map(rarity => ({ rarity, pct:table[rarity], name:'base' })),
+    ...(def.sigDrops||[]).flatMap(sigId => sigEssenceRarities(sigId).map(rarity =>
+      ({ rarity, pct:sigEssenceDropPct(sigId, level, rarity), name:sigId })))
+      .filter(row => row.pct > 0),
+  ].sort((a,b) => RARITIES.indexOf(a.rarity) - RARITIES.indexOf(b.rarity));
+  const cards = rows.map(row => essenceRateCard(row.rarity, row.pct, zt.zoneNum, zt.subTier, row.name)).join('');
   const html = `
     <div class="tip-name">${def.name}</div>
     <div class="tip-rar" style="color:#ffe27a">Level ${level}</div>
@@ -1947,11 +2048,24 @@ function showPetalTip(e, petalKey, tier){
   e.stopPropagation();
   tier = tier || 1;
   const def = PETAL_DEFS[petalKey], rarity = PETAL_RARITY[petalKey];
-  const forgeBlock = petalKey==='basic' ? '<div class="tip-desc">Starting petal.</div>'
-    : `<div class="ratecard-row"><div class="ratecard" style="--rc:${RARITY_INFO[rarity].color}">
+  const isBasic = Object.values(BASIC_IDS).includes(petalKey);
+  const recipe = PETAL_RECIPES[petalKey];
+  let forgeBlock;
+  if (isBasic){
+    forgeBlock = `<div class="ratecard-row"><div class="ratecard" style="--rc:${RARITY_INFO[rarity].color}">
         <canvas class="eicon" data-rarity="${rarity}" width="30" height="30"></canvas>
-        <div class="rc-name">${forgeCost(rarity)}x Essence</div>
+        <div class="rc-name">${BASIC_FORGE_COST}x ${RARITY_INFO[rarity].name} Essence</div>
       </div></div>`;
+  } else if (recipe){
+    const ingredientCards = Object.entries(recipe).map(([sigId,qty])=>`<div class="ratecard" style="--rc:${RARITY_INFO[rarity].color}">
+        <canvas class="eicon" data-rarity="${rarity}" data-name="${sigId}" width="30" height="30"></canvas>
+        <div class="rc-name">${qty}x ${SIGNATURE_ESSENCES[sigId].name}</div>
+      </div>`).join('');
+    forgeBlock = `<div class="tip-stats">Petal Forging — requires 1 ${RARITY_INFO[rarity].name} Basic petal, plus:</div>
+      <div class="ratecard-row">${ingredientCards}</div>`;
+  } else {
+    forgeBlock = '';
+  }
   const parts = def.parts>1 ? `<div class="tip-stats">Spawns as ${def.parts} miniature copies</div>` : '';
 
   // surface whatever secondary effect this petal actually has, at the clicked tier
@@ -2015,7 +2129,7 @@ function attemptCraft(){
     let remaining = inventory[k]||0;
     let successCount = 0, failCount = 0, totalLost = 0, singleBatchDestroyedCount = 0;
     do {
-      if (Math.random()*100 < CRAFT_CHANCE[tier]){
+      if (Math.random()*100 < CRAFT_CHANCE_BY_RARITY[PETAL_RARITY[petal]]){
         successCount++;
         remaining -= CRAFT_COST;
       } else {
@@ -2117,10 +2231,10 @@ function renderCraftPanel(){
   } else if (craftPhase==='spinning'){
     chanceText = batches>1 ? `Crafting ${batches}x…` : 'Crafting…';
   } else if (sel){
-    chanceText = isMax ? 'Already max tier' : `${CRAFT_CHANCE[sel.tier]}% success chance`;
+    chanceText = isMax ? 'Already max tier' : `${CRAFT_CHANCE_BY_RARITY[PETAL_RARITY[sel.petal]]}% success chance`;
   }
 
-  const rows = Object.keys(PETAL_DEFS).filter(k=>k!=='basic' && PETAL_RARITY[k]!=='mythic').sort(byRarityThenNameAsc).map(petalKey=>{
+  const rows = Object.keys(PETAL_DEFS).filter(k=>PETAL_RARITY[k]!=='mythic').sort(byRarityThenNameAsc).map(petalKey=>{
     const rowRc = RARITY_INFO[PETAL_RARITY[petalKey]].color;
     const cells = TIERS.map(t=>{
       const k = invKey(petalKey, t);
@@ -2142,8 +2256,9 @@ function renderCraftPanel(){
   }).join('');
 
   return `
-    <div class="panel-head"><h2>Craft</h2><button class="x" onclick="closePanel()">✕</button></div>
+    <div class="panel-head"><h2>Forge — Petal Tiering</h2><button class="x" onclick="closePanel()">✕</button></div>
     <div class="craft-fixed">
+      <div class="inv-sub"><span style="cursor:pointer;text-decoration:underline" onclick="openForgeMenu(null)">← back to Forge menu</span></div>
       <div class="craft-top">
         <div class="craft-pentagon ${pentagonState}">${arms}${center}</div>
         <div class="craft-action">
@@ -2158,22 +2273,56 @@ function renderCraftPanel(){
     </div>`;
 }
 
-/* ── Forge — guaranteed-success way to obtain ANY petal at tier 1, spending essence of that
-     petal's rarity. List of all petals (rarity-sorted); click one to view its recipe. ── */
-function selectForgeItem(petal, bulk){
-  if (forgePhase!=='idle') return; // no mid-animation swaps
-  forgeSelection = petal;
+/* ── Forge hub — 5 sub-menus. renderForgePanel just dispatches on forgeMenu; each sub-menu
+     has its own render + attempt function further down. ── */
+function renderForgePanel(){
+  if (forgeMenu==null) return renderForgeHub();
+  if (forgeMenu==='tiering') return renderCraftPanel();
+  if (forgeMenu==='basic') return renderBasicForging();
+  if (forgeMenu==='petalForge') return renderPetalForging();
+  if (forgeMenu==='essenceForge') return renderEssenceForging();
+  if (forgeMenu==='essenceDivide') return renderEssenceDividing();
+  return renderForgeHub();
+}
+const FORGE_MENU_INFO = {
+  basic:         { title:'Basic Forging',   desc:'Spend base essence of a chosen rarity to forge a fresh Basic petal.' },
+  petalForge:    { title:'Petal Forging',   desc:'Spend 1 Basic + signature essence to forge any other petal.' },
+  essenceForge:  { title:'Essence Forging', desc:'Upgrade essence to a higher rarity by spending essence as a catalyst.' },
+  essenceDivide: { title:'Essence Dividing',desc:'Break an essence down into several of a lower rarity.' },
+  tiering:       { title:'Petal Tiering',   desc:'Combine 5 of the same petal+tier for a chance at the next tier up.' },
+};
+function renderForgeHub(){
+  const cards = Object.keys(FORGE_MENU_INFO).map(menu=>{
+    const info = FORGE_MENU_INFO[menu];
+    return `<div class="ratecard mobcard" style="width:auto;cursor:pointer;flex:1 1 140px" onclick="openForgeMenu('${menu}')">
+      <div class="rc-name" style="font-size:12px">${info.title}</div>
+      <div class="rc-pct" style="font-size:9px;font-weight:700">${info.desc}</div>
+    </div>`;
+  }).join('');
+  return `
+    <div class="panel-head"><h2>Forge</h2><button class="x" onclick="closePanel()">✕</button></div>
+    <div class="panel-body">
+      <div class="inv-sub">Pick what you want to do at the Forge</div>
+      <div class="ratecard-row">${cards}</div>
+    </div>`;
+}
+function forgeBackLink(){ return `<div class="inv-sub"><span style="cursor:pointer;text-decoration:underline" onclick="openForgeMenu(null)">← back to Forge menu</span></div>`; }
+
+/* ── Basic Forging — pick a rarity, spend BASIC_FORGE_COST base essence of it, get a fresh
+     Basic petal at that rarity's starting tier. Sig essence is never accepted here. ── */
+function selectBasicRarity(rarity, bulk){
+  if (forgePhase!=='idle') return;
+  forgeSelection = rarity;
   forgeBulk = !!bulk;
   renderPanel();
 }
-function attemptForge(){
+function attemptBasicForge(){
   if (!forgeSelection || forgePhase!=='idle') return;
-  const rarity = PETAL_RARITY[forgeSelection];
-  const cost = forgeCost(rarity);
+  const rarity = forgeSelection;
   const k = essenceKey(rarity);
   const have = essence[k]||0;
-  if (have < cost) return;
-  const batches = forgeBulk ? Math.max(1, Math.floor(have/cost)) : 1;
+  if (have < BASIC_FORGE_COST) return;
+  const batches = forgeBulk ? Math.max(1, Math.floor(have/BASIC_FORGE_COST)) : 1;
 
   forgePhase = 'spinning';
   const root = document.getElementById('panelRoot');
@@ -2184,12 +2333,13 @@ function attemptForge(){
   if (chanceEl) chanceEl.textContent = 'Forging…';
 
   setTimeout(()=>{
-    essence[k] -= cost*batches;
-    const startTier = RARITY_START_TIER[rarity];
-    const nk = invKey(forgeSelection, startTier);
+    essence[k] -= BASIC_FORGE_COST*batches;
+    const tier = RARITY_START_TIER[rarity];
+    const petal = BASIC_IDS[rarity];
+    const nk = invKey(petal, tier);
     inventory[nk] = (inventory[nk]||0) + batches;
     discoveredPetals.add(nk);
-    forgeResult = { petal: forgeSelection, tier: startTier, count: batches };
+    forgeResult = { rarity, tier, count: batches };
     forgePhase = 'result';
     renderPanel();
     saveProgress();
@@ -2201,51 +2351,43 @@ function attemptForge(){
     }, CRAFT_RESULT_HOLD*1000);
   }, CRAFT_SPIN_DUR*1000);
 }
-function renderForgePanel(){
+function renderBasicForging(){
   if (!forgeSelection){
-    // the forge always shows what you're picking — discovery only hides a petal's stats,
-    // which live in the Petal Gallery instead
-    const petalsSorted = Object.keys(PETAL_DEFS).filter(k=>k!=='basic').sort(byRarityThenNameAsc);
-    const cells = petalsSorted.map(petalKey=>{
-      const rc = RARITY_INFO[PETAL_RARITY[petalKey]].color;
-      const rarity = PETAL_RARITY[petalKey], cost = forgeCost(rarity);
+    const cells = RARITIES.map(rarity=>{
+      const rc = RARITY_INFO[rarity].color;
       const have = essence[essenceKey(rarity)]||0;
-      return `<div class="gcell" style="--rc:${rc}" onclick="selectForgeItem('${petalKey}',event.shiftKey)" title="Shift-click to queue all ${Math.floor(have/cost)} batches">
-        <canvas class="picn" data-petal="${petalKey}" width="40" height="40"></canvas>
+      return `<div class="gcell" style="--rc:${rc}" onclick="selectBasicRarity('${rarity}',event.shiftKey)" title="Shift-click to queue all ${Math.floor(have/BASIC_FORGE_COST)} batches">
+        <canvas class="picn" data-petal="${BASIC_IDS[rarity]}" width="40" height="40"></canvas>
       </div>`;
     }).join('');
     return `
-      <div class="panel-head"><h2>Forge</h2><button class="x" onclick="closePanel()">✕</button></div>
+      <div class="panel-head"><h2>Basic Forging</h2><button class="x" onclick="closePanel()">✕</button></div>
       <div class="panel-body">
-        <div class="inv-sub">Click a petal to view its forge recipe — shift-click to queue every batch you own</div>
+        ${forgeBackLink()}
+        <div class="inv-sub">Pick a rarity of Basic to forge — shift-click to queue every batch you own</div>
         <div class="grow">${cells}</div>
       </div>`;
   }
 
-  const target = forgeSelection;
-  const rarity = PETAL_RARITY[target];
-  const cost = forgeCost(rarity);
-  const startTier = RARITY_START_TIER[rarity];
-  const perSlot = cost/5;
+  const rarity = forgeSelection;
+  const tier = RARITY_START_TIER[rarity];
+  const petal = BASIC_IDS[rarity];
   const have = essence[essenceKey(rarity)]||0;
-  const canForge = forgePhase==='idle' && have>=cost;
+  const canForge = forgePhase==='idle' && have>=BASIC_FORGE_COST;
   const rc = RARITY_INFO[rarity].color;
-  // an estimate only while idle — mirrors the craft menu's batch estimate
-  const batches = forgeBulk ? Math.max(1, Math.floor(have/cost)) : 1;
+  const batches = forgeBulk ? Math.max(1, Math.floor(have/BASIC_FORGE_COST)) : 1;
   const res = forgeResult;
 
-  const slotCount = perSlot * (forgePhase==='result' ? res.count : batches);
+  const slotCount = forgePhase==='result' ? res.count : batches;
   const qtyBadge = slotCount>1 ? `<div class="craft-slot-badge">×${slotCount}</div>` : '';
   const arms = CRAFT_ARM_ANGLES.map(ang=>{
-    const cls = have>=cost ? 'filled' : 'filled missing';
+    const cls = have>=BASIC_FORGE_COST ? 'filled' : 'filled missing';
     return `<div class="craft-arm" style="transform:rotate(${ang}deg)"><div class="craft-radius"><div class="craft-counter" style="transform:rotate(${-ang}deg)"><div class="craft-spin"><div class="craftslot ${cls}" style="--rc:${rc}"><canvas class="eicon" data-rarity="${rarity}" width="44" height="44"></canvas>${qtyBadge}</div></div></div></div></div>`;
   }).join('');
 
-  // the center stays hidden (no petal spoiler, no idle placeholder) until a forge actually
-  // succeeds, then reveals the result exactly like the craft menu's center reveal
   const centerShow = forgePhase==='result';
   const center = `<div class="craft-center"><div class="craft-center-inner ${centerShow?'show':''}" ${centerShow?`style="--rc:${rc};background:${rc}"`:''}>
-    ${centerShow?`<canvas class="picn" data-petal="${target}" data-tier="${startTier}" width="60" height="60"></canvas>`:''}
+    ${centerShow?`<canvas class="picn" data-petal="${petal}" data-tier="${tier}" width="60" height="60"></canvas>`:''}
     ${centerShow && res.count>1?`<div class="craft-center-badge">×${res.count}</div>`:''}
   </div></div>`;
 
@@ -2253,23 +2395,279 @@ function renderForgePanel(){
 
   let statusText;
   if (forgePhase==='spinning') statusText = batches>1 ? `Forging ${batches}x…` : 'Forging…';
-  else if (forgePhase==='result') statusText = res.count>1 ? `Forged ${res.count}x ${PETAL_DEFS[target].name}!` : `Forged ${PETAL_DEFS[target].name}!`;
-  else statusText = canForge ? 'Ready to forge' : `Need ${cost}x ${RARITY_INFO[rarity].name} Essence`;
+  else if (forgePhase==='result') statusText = res.count>1 ? `Forged ${res.count}x Basic!` : `Forged Basic!`;
+  else statusText = canForge ? 'Ready to forge' : `Need ${BASIC_FORGE_COST}x ${RARITY_INFO[rarity].name} Essence`;
 
   return `
-    <div class="panel-head"><h2>Forge — ${PETAL_DEFS[target].name}</h2><button class="x" onclick="closePanel()">✕</button></div>
+    <div class="panel-head"><h2>Basic Forging — ${RARITY_INFO[rarity].name}</h2><button class="x" onclick="closePanel()">✕</button></div>
     <div class="craft-fixed">
       <div class="craft-top">
         <div class="craft-pentagon ${pentagonState}">${arms}${center}</div>
         <div class="craft-action">
-          <button class="craft-btn" ${canForge?'':'disabled'} onclick="attemptForge()">Forge</button>
+          <button class="craft-btn" ${canForge?'':'disabled'} onclick="attemptBasicForge()">Forge</button>
           <div class="craft-chance">${statusText}</div>
         </div>
       </div>
-      <div class="craft-hint">Requires ${cost}x ${RARITY_INFO[rarity].name} Essence (have ${have}) — outputs a fresh Tier ${startTier} petal${batches>1?` · queued ${batches}x`:''}</div>
+      <div class="craft-hint">Requires ${BASIC_FORGE_COST}x ${RARITY_INFO[rarity].name} Essence (have ${have}) — sig essence not accepted. Outputs a fresh Tier ${tier} Basic${batches>1?` · queued ${batches}x`:''}</div>
     </div>
     <div class="panel-body">
-      <div class="inv-sub"><span style="cursor:pointer;text-decoration:underline" onclick="selectForgeItem(null)">← back to list</span></div>
+      <div class="inv-sub"><span style="cursor:pointer;text-decoration:underline" onclick="selectBasicRarity(null)">← back to list</span></div>
+    </div>`;
+}
+
+/* ── Petal Forging — every other petal's recipe: 1 Basic of the petal's own rarity, plus the
+     5 signature-essence ingredients listed in PETAL_RECIPES (also at the petal's own rarity).
+     The Basic ingredient is drawn from whichever tier stack is lowest, so tiering up your Basics
+     first doesn't lock them out of being spent here. ── */
+function basicHaveTotal(rarity){
+  return TIERS.reduce((sum,t)=> sum + (inventory[invKey(BASIC_IDS[rarity],t)]||0), 0);
+}
+function consumeBasic(rarity, count){
+  let remaining = count;
+  for (const t of TIERS){
+    if (remaining<=0) break;
+    const k = invKey(BASIC_IDS[rarity], t);
+    const take = Math.min(remaining, inventory[k]||0);
+    if (take>0){ inventory[k] -= take; remaining -= take; }
+  }
+}
+function petalForgeBatches(petal){
+  const rarity = PETAL_RARITY[petal], recipe = PETAL_RECIPES[petal];
+  let max = basicHaveTotal(rarity);
+  for (const sigId in recipe){
+    const have = essence[essenceKey(rarity, sigId)]||0;
+    max = Math.min(max, Math.floor(have/recipe[sigId]));
+  }
+  return Math.max(0, max);
+}
+function selectPetalForge(petal, bulk){
+  if (pforgePhase!=='idle') return;
+  pforgeSelection = petal;
+  pforgeBulk = !!bulk;
+  renderPanel();
+}
+function attemptPetalForge(){
+  if (!pforgeSelection || pforgePhase!=='idle') return;
+  const petal = pforgeSelection, rarity = PETAL_RARITY[petal], recipe = PETAL_RECIPES[petal];
+  const maxBatches = petalForgeBatches(petal);
+  if (maxBatches<1) return;
+  const batches = pforgeBulk ? maxBatches : 1;
+
+  pforgePhase = 'spinning';
+  renderPanel();
+
+  setTimeout(()=>{
+    consumeBasic(rarity, batches);
+    for (const sigId in recipe){
+      const k = essenceKey(rarity, sigId);
+      essence[k] -= recipe[sigId]*batches;
+    }
+    const tier = RARITY_START_TIER[rarity];
+    const nk = invKey(petal, tier);
+    inventory[nk] = (inventory[nk]||0) + batches;
+    discoveredPetals.add(nk);
+    pforgeResult = { petal, tier, count: batches };
+    pforgePhase = 'result';
+    renderPanel();
+    saveProgress();
+
+    setTimeout(()=>{
+      pforgePhase = 'idle';
+      pforgeResult = null;
+      renderPanel();
+    }, CRAFT_RESULT_HOLD*1000);
+  }, 400);
+}
+function renderPetalForging(){
+  if (!pforgeSelection){
+    const petalsSorted = Object.keys(PETAL_RECIPES).sort(byRarityThenNameAsc);
+    const cells = petalsSorted.map(petalKey=>{
+      const rc = RARITY_INFO[PETAL_RARITY[petalKey]].color;
+      return `<div class="gcell" style="--rc:${rc}" onclick="selectPetalForge('${petalKey}',event.shiftKey)" title="Shift-click to queue every batch you can afford">
+        <canvas class="picn" data-petal="${petalKey}" width="40" height="40"></canvas>
+      </div>`;
+    }).join('');
+    return `
+      <div class="panel-head"><h2>Petal Forging</h2><button class="x" onclick="closePanel()">✕</button></div>
+      <div class="panel-body">
+        ${forgeBackLink()}
+        <div class="inv-sub">Click a petal to view its recipe — shift-click to queue every batch you can afford</div>
+        <div class="grow">${cells}</div>
+      </div>`;
+  }
+
+  const petal = pforgeSelection, rarity = PETAL_RARITY[petal], recipe = PETAL_RECIPES[petal];
+  const rc = RARITY_INFO[rarity].color;
+  const basicHave = basicHaveTotal(rarity);
+  const maxBatches = petalForgeBatches(petal);
+  const canForge = pforgePhase==='idle' && maxBatches>=1;
+  const batches = pforgeBulk ? Math.max(1,maxBatches) : 1;
+  const res = pforgeResult;
+
+  const basicCard = `<div class="ratecard" style="--rc:${rc}">
+      <canvas class="picn" data-petal="${BASIC_IDS[rarity]}" width="24" height="24"></canvas>
+      <div class="rc-name">1x Basic</div>
+      <div class="rc-pct">${basicHave}</div>
+    </div>`;
+  const ingredientCards = Object.entries(recipe).map(([sigId,qty])=>{
+    const have = essence[essenceKey(rarity,sigId)]||0;
+    return `<div class="ratecard" style="--rc:${rc}">
+      <canvas class="eicon" data-rarity="${rarity}" data-name="${sigId}" width="24" height="24"></canvas>
+      <div class="rc-name">${qty}x ${SIGNATURE_ESSENCES[sigId].name}</div>
+      <div class="rc-pct">${have}</div>
+    </div>`;
+  }).join('');
+
+  let statusText;
+  if (pforgePhase==='spinning') statusText = 'Forging…';
+  else if (pforgePhase==='result') statusText = res.count>1 ? `Forged ${res.count}x ${PETAL_DEFS[petal].name}!` : `Forged ${PETAL_DEFS[petal].name}!`;
+  else statusText = canForge ? 'Ready to forge' : 'Missing ingredients';
+
+  return `
+    <div class="panel-head"><h2>Petal Forging — ${PETAL_DEFS[petal].name}</h2><button class="x" onclick="closePanel()">✕</button></div>
+    <div class="panel-body">
+      <div class="inv-sub"><span style="cursor:pointer;text-decoration:underline" onclick="selectPetalForge(null)">← back to list</span></div>
+      <div class="inv-sub">Recipe (all ${RARITY_INFO[rarity].name}):</div>
+      <div class="ratecard-row">${basicCard}${ingredientCards}</div>
+      <div style="text-align:center;margin-top:8px">
+        <button class="craft-btn" ${canForge?'':'disabled'} onclick="attemptPetalForge()">Forge</button>
+        <div class="craft-chance">${statusText}${batches>1 && pforgePhase==='idle'?` · queued ${batches}x`:''}</div>
+      </div>
+    </div>`;
+}
+
+/* ── Essence Forging — two conversion directions, each spends 5-of-one-thing + 1-of-another to
+     upgrade an essence stack to a higher rarity. ── */
+function setEforgeMode(mode){ eforgeMode = mode; eforgeSigId=null; eforgeFromRarity=null; eforgeToRarity=null; renderPanel(); }
+function setEforgeSigId(id){ eforgeSigId = id||null; eforgeFromRarity=null; eforgeToRarity=null; renderPanel(); }
+function setEforgeFromRarity(r){ eforgeFromRarity = r||null; eforgeToRarity=null; renderPanel(); }
+function setEforgeToRarity(r){ eforgeToRarity = r||null; renderPanel(); }
+function eforgeReady(){
+  if (!eforgeFromRarity || !eforgeToRarity) return false;
+  if (RARITIES.indexOf(eforgeToRarity) <= RARITIES.indexOf(eforgeFromRarity)) return false;
+  if (eforgeMode==='sig'){
+    if (!eforgeSigId) return false;
+    return (essence[essenceKey(eforgeFromRarity,eforgeSigId)]||0) >= 5 && (essence[essenceKey(eforgeToRarity)]||0) >= 1;
+  } else {
+    if (!eforgeSigId) return false;
+    return (essence[essenceKey(eforgeFromRarity)]||0) >= 1 && (essence[essenceKey(eforgeToRarity,eforgeSigId)]||0) >= 5;
+  }
+}
+function attemptEssenceForge(){
+  if (!eforgeReady() || eforgePhase!=='idle') return;
+  eforgePhase = 'spinning';
+  renderPanel();
+  setTimeout(()=>{
+    if (eforgeMode==='sig'){
+      essence[essenceKey(eforgeFromRarity,eforgeSigId)] -= 5;
+      essence[essenceKey(eforgeToRarity)] -= 1;
+      const nk = essenceKey(eforgeToRarity,eforgeSigId);
+      essence[nk] = (essence[nk]||0) + 1;
+      eforgeResult = { name:SIGNATURE_ESSENCES[eforgeSigId].name, rarity:eforgeToRarity };
+    } else {
+      essence[essenceKey(eforgeFromRarity)] -= 1;
+      essence[essenceKey(eforgeToRarity,eforgeSigId)] -= 5;
+      const nk = essenceKey(eforgeToRarity);
+      essence[nk] = (essence[nk]||0) + 1;
+      eforgeResult = { name:'Base', rarity:eforgeToRarity };
+    }
+    eforgePhase = 'result';
+    renderPanel();
+    saveProgress();
+    setTimeout(()=>{ eforgePhase='idle'; eforgeResult=null; renderPanel(); }, CRAFT_RESULT_HOLD*1000);
+  }, 400);
+}
+function renderEssenceForging(){
+  const sigOptions = Object.keys(SIGNATURE_ESSENCES).map(id=>
+    `<option value="${id}" ${eforgeSigId===id?'selected':''}>${SIGNATURE_ESSENCES[id].name}</option>`).join('');
+  let fromOptions = '', toOptions = '';
+  if (eforgeMode==='sig' && eforgeSigId){
+    fromOptions = sigEssenceRarities(eforgeSigId).filter(r=>r!=='mythic').map(r=>
+      `<option value="${r}" ${eforgeFromRarity===r?'selected':''}>${RARITY_INFO[r].name} (have ${essence[essenceKey(r,eforgeSigId)]||0})</option>`).join('');
+  } else if (eforgeMode==='base'){
+    fromOptions = RARITIES.filter(r=>r!=='mythic').map(r=>
+      `<option value="${r}" ${eforgeFromRarity===r?'selected':''}>${RARITY_INFO[r].name} (have ${essence[essenceKey(r)]||0})</option>`).join('');
+  }
+  if (eforgeFromRarity){
+    toOptions = RARITIES.slice(RARITIES.indexOf(eforgeFromRarity)+1).map(r=>{
+      const have = eforgeMode==='sig' ? (essence[essenceKey(r)]||0) : (eforgeSigId ? essence[essenceKey(r,eforgeSigId)]||0 : 0);
+      return `<option value="${r}" ${eforgeToRarity===r?'selected':''}>${RARITY_INFO[r].name} (have ${have})</option>`;
+    }).join('');
+  }
+  const ready = eforgeReady();
+  let statusText;
+  if (eforgePhase==='spinning') statusText = 'Forging…';
+  else if (eforgePhase==='result') statusText = `Forged 1x ${RARITY_INFO[eforgeResult.rarity].name} ${eforgeResult.name} Essence!`;
+  else statusText = ready ? 'Ready to forge' : 'Pick a valid combination';
+
+  return `
+    <div class="panel-head"><h2>Essence Forging</h2><button class="x" onclick="closePanel()">✕</button></div>
+    <div class="panel-body">
+      ${forgeBackLink()}
+      <div style="display:flex;gap:8px;justify-content:center;margin-bottom:8px">
+        <button class="craft-btn" style="${eforgeMode==='sig'?'':'opacity:.55'}" onclick="setEforgeMode('sig')">Sig → Sig</button>
+        <button class="craft-btn" style="${eforgeMode==='base'?'':'opacity:.55'}" onclick="setEforgeMode('base')">Base → Base</button>
+      </div>
+      <div class="inv-sub">${eforgeMode==='sig'
+        ? '5x a signature essence + 1x higher-rarity Base → 1x that signature essence at the higher rarity'
+        : '1x Base + 5x a higher-rarity signature essence → 1x Base at the higher rarity'}</div>
+      <div style="display:flex;flex-direction:column;gap:6px;align-items:center;max-width:320px;margin:0 auto">
+        <select onchange="setEforgeSigId(this.value)"><option value="">Pick signature essence…</option>${sigOptions}</select>
+        ${(eforgeMode==='base' || eforgeSigId) ? `<select onchange="setEforgeFromRarity(this.value)"><option value="">Pick ${eforgeMode==='sig'?'source':'source Base'} rarity…</option>${fromOptions}</select>` : ''}
+        ${eforgeFromRarity ? `<select onchange="setEforgeToRarity(this.value)"><option value="">Pick target rarity…</option>${toOptions}</select>` : ''}
+      </div>
+      <div style="text-align:center;margin-top:10px">
+        <button class="craft-btn" ${ready && eforgePhase==='idle'?'':'disabled'} onclick="attemptEssenceForge()">Forge</button>
+        <div class="craft-chance">${statusText}</div>
+      </div>
+    </div>`;
+}
+
+/* ── Essence Dividing — decraft 1 essence into several of a lower rarity (ESSENCE_DIVIDE table
+     in balance.js). Common can't be divided; legendary/mythic jump straight to epic. ── */
+function setEdivName(name){ edivName = name; edivRarity = null; renderPanel(); }
+function setEdivRarity(r){ edivRarity = r||null; renderPanel(); }
+function attemptEssenceDivide(bulk){
+  if (!edivRarity || edivPhase!=='idle') return;
+  const div = ESSENCE_DIVIDE[edivRarity];
+  if (!div) return;
+  const k = essenceKey(edivRarity, edivName);
+  const have = essence[k]||0;
+  if (have<1) return;
+  const batches = bulk ? have : 1;
+  essence[k] -= batches;
+  const nk = essenceKey(div.rarity, edivName);
+  essence[nk] = (essence[nk]||0) + div.count*batches;
+  edivResult = { rarity:div.rarity, count:div.count*batches, name: edivName==='base'?'Base':SIGNATURE_ESSENCES[edivName].name };
+  renderPanel();
+  saveProgress();
+}
+function renderEssenceDividing(){
+  const nameOptions = [`<option value="base" ${edivName==='base'?'selected':''}>Base</option>`]
+    .concat(Object.keys(SIGNATURE_ESSENCES).map(id=>`<option value="${id}" ${edivName===id?'selected':''}>${SIGNATURE_ESSENCES[id].name}</option>`)).join('');
+  const validRarities = edivName==='base' ? RARITIES : sigEssenceRarities(edivName);
+  const rarityOptions = validRarities.filter(r=>ESSENCE_DIVIDE[r]).map(r=>{
+    const have = essence[essenceKey(r,edivName)]||0;
+    return `<option value="${r}" ${edivRarity===r?'selected':''}>${RARITY_INFO[r].name} (have ${have})</option>`;
+  }).join('');
+  const div = edivRarity ? ESSENCE_DIVIDE[edivRarity] : null;
+  const have = edivRarity ? (essence[essenceKey(edivRarity,edivName)]||0) : 0;
+  const preview = div ? `<div class="inv-sub">1x ${RARITY_INFO[edivRarity].name} → ${div.count}x ${RARITY_INFO[div.rarity].name}</div>` : '';
+  return `
+    <div class="panel-head"><h2>Essence Dividing</h2><button class="x" onclick="closePanel()">✕</button></div>
+    <div class="panel-body">
+      ${forgeBackLink()}
+      <div class="inv-sub">Break 1 essence down into several of a lower rarity. Common can't be divided; Legendary → 10x Epic, Mythic → 25x Epic.</div>
+      <div style="display:flex;flex-direction:column;gap:6px;align-items:center;max-width:280px;margin:0 auto">
+        <select onchange="setEdivName(this.value)">${nameOptions}</select>
+        <select onchange="setEdivRarity(this.value)"><option value="">Pick rarity to divide…</option>${rarityOptions}</select>
+      </div>
+      ${preview}
+      <div style="text-align:center;margin-top:10px">
+        <button class="craft-btn" ${div && have>=1?'':'disabled'} onclick="attemptEssenceDivide(false)">Divide 1x</button>
+        <button class="craft-btn" ${div && have>=1?'':'disabled'} onclick="attemptEssenceDivide(true)">Divide All (${have}x)</button>
+        <div class="craft-chance">${edivResult ? `Divided into ${edivResult.count}x ${RARITY_INFO[edivResult.rarity].name} ${edivResult.name}!` : ''}</div>
+      </div>
     </div>`;
 }
 
@@ -2481,8 +2879,23 @@ function applySave(save){
   if (save.loadouts) loadouts = save.loadouts;
   if (save.activeLoadout!=null) activeLoadout = save.activeLoadout;
   if (save.essence) essence = save.essence;
+  migrateLegacyBasic();
   player = makePlayer();
   rebuildInstances();
+}
+// old saves (pre-rarity-Basic) used a single 'basic' petal id — remap it to the common-rarity
+// variant everywhere it could appear, so old saves don't reference a petal id that no longer exists
+function migrateLegacyBasic(){
+  loadouts.forEach(lo=>lo.forEach(slot=>{ if (slot.petal==='basic') slot.petal = BASIC_IDS.common; }));
+  if (inventory['basic|1']){
+    const nk = invKey(BASIC_IDS.common, 1);
+    inventory[nk] = (inventory[nk]||0) + inventory['basic|1'];
+    delete inventory['basic|1'];
+  }
+  if (discoveredPetals.has('basic|1')){
+    discoveredPetals.delete('basic|1');
+    discoveredPetals.add(invKey(BASIC_IDS.common, 1));
+  }
 }
 function saveProgress(){
   if (!authed || !window.MP) return;
