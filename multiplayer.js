@@ -143,21 +143,11 @@ const MP = {
      mobs and publishes them here; everyone else mirrors them. Non-hosts report their petal
      hits, which the host applies; the host announces deaths, which everyone reacts to. */
 
-  // host overwrites the whole active-mob set each tick (near-player mobs only — see index.html's
-  // publishWorldMobs — this is the real-time one, kept small/fast for the ~7x/sec cadence)
+  // host overwrites the whole active-mob set each tick
   publishMobs(obj) { if (!uid) return; set(ref(db, 'world/mobs'), obj).catch(() => {}); },
   subscribeMobs(cb) { onValue(ref(db, 'world/mobs'), (s) => cb(s.val() || {})); },
   // best-effort: if the host vanishes, its published mob set is left for the next host to adopt
   // (a fresh lone host reseeds instead, so the world still recovers)
-
-  // the FULL mob roster (every mob, not just near-player ones), written on a slow cadence purely
-  // so the world survives having zero players online. A fresh host with nothing already
-  // mirrored loads this before falling back to reseeding from scratch.
-  saveWorldSnapshot(obj) { if (!uid) return; set(ref(db, 'world/snapshot'), obj).catch(() => {}); },
-  async loadWorldSnapshot() {
-    const snap = await get(ref(db, 'world/snapshot'));
-    return snap.exists() ? snap.val() : null;
-  },
 
   // non-host → host: "my petal hit mob <id> for <dmg>"
   sendHit(mobId, dmg) { if (!uid) return; push(ref(db, 'world/hits'), { m: mobId, d: dmg, from: uid }).catch(() => {}); },

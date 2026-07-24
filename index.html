@@ -1030,17 +1030,10 @@ function updateWorld(dt){
     }
   }
   if (amHost){
-    // pause spawning while a freshly-promoted host is still waiting to hear back from
-    // loadWorldSnapshot() — otherwise natural spawns could fill chunks moments before a
-    // persisted world arrives and gets laid on top of them
-    if (!awaitingWorldInit) updateSpawns(dt);
-    // broadcast the near-player mob set on a fixed cadence, independent of frame rate
+    updateSpawns(dt);
+    // broadcast the mob set on a fixed cadence, independent of frame rate
     worldPubT -= dt;
     if (worldPubT <= 0){ worldPubT = WORLD_PUB_PERIOD; publishWorldMobs(); }
-    // separately, persist the FULL roster on a much slower cadence — this is what lets the
-    // world survive everyone logging off, not something that needs real-time freshness
-    snapshotPubT -= dt;
-    if (snapshotPubT <= 0){ snapshotPubT = SNAPSHOT_PUB_PERIOD; publishFullSnapshot(); }
   }
 }
 
@@ -2341,12 +2334,7 @@ const mobById = {};                  // netId -> mob object (mirror lookup / cle
 const myHits = new Set();
 const processedDeaths = new Set();   // death-event ids already handled
 let worldPubT = 0;
-const WORLD_PUB_PERIOD = 1/7;        // host broadcasts the near-player mob set ~7x/sec
-let snapshotPubT = 0;
-const SNAPSHOT_PUB_PERIOD = 8;       // full-roster persistence is just for recovery — no need to rush
-// true while a freshly-promoted host is waiting on loadWorldSnapshot() to resolve — spawning
-// is paused during this window so we don't seed a fresh world right as a persisted one arrives
-let awaitingWorldInit = false;
+const WORLD_PUB_PERIOD = 1/7;        // host broadcasts the mob set ~7x/sec
 
 function ensureNetId(m){ if (m && !m.netId){ m.netId = NET_PREFIX+(worldSeq++); mobById[m.netId] = m; } }
 // drop every mirrored mob — used when the host changes, so ids from the previous host's world
@@ -2377,17 +2365,6 @@ function publishWorldMobs(){
                     Math.round(m.health), Math.round((((m.facing||0)%TAU)+TAU)%TAU/TAU*255)];
   }
   window.MP.publishMobs(obj);
-}
-// host: persist the ENTIRE mob roster (not just near-player ones) on a slow cadence, purely so
-// the world survives everyone logging off. Kept separate from publishWorldMobs (which only
-// covers near-player mobs and runs ~7x/sec) since this needs every mob but only occasionally.
-function publishFullSnapshot(){
-  const obj = {};
-  for (const m of mobs){
-    if (m.dying || !m.netId) continue;
-    obj[m.netId] = [TYPE_IDX[m.type], m.level, Math.round(m.x), Math.round(m.y), Math.round(m.health)];
-  }
-  window.MP.saveWorldSnapshot(obj);
 }
 // non-host: fold a broadcast snapshot into the local mirror
 function ingestWorldMobs(obj){
@@ -2474,37 +2451,13 @@ function onPlayersChanged(others, allUids){
   // can't collide with the new host's broadcast (belt-and-suspenders alongside unique ids)
   else if (!amHost && hostChanged) clearMirror();
 }
-async function becomeHost(){
-  // adopt whatever mobs we're already mirroring under a previous host — no need to touch
-  // Firebase at all in that case, the world was already alive and we were watching it.
-  if (mobs.length > 0){
-    for (const m of mobs) ensureNetId(m);
-    publishWorldMobs();
-    publishFullSnapshot();
-    return;
-  }
-  // we have nothing locally — either we're the very first player back after everyone left, or
-  // we just logged in cold. Try to resume the persisted world before reseeding a fresh one.
-  awaitingWorldInit = true;
-  let snap = null;
-  try { snap = await window.MP.loadWorldSnapshot(); } catch(e){}
-  if (!amHost){ awaitingWorldInit = false; return; }   // lost host status while we were waiting
-  if (snap && Object.keys(snap).length){
-    for (const id in snap){
-      const a = snap[id];
-      const type = TYPE_LIST[a[0]], level = a[1], x = a[2], y = a[3], hp = a[4];
-      if (!MOB_DEFS[type]) continue;   // defensive: ignore anything that doesn't decode cleanly
-      const m = spawnMob(type, level, x, y);
-      m.netId = id; m.health = hp; m.dispHealth = hp;
-      mobById[id] = m;
-    }
-  } else {
-    seedMobs();
-    for (const m of mobs) ensureNetId(m);
-  }
-  awaitingWorldInit = false;
+function becomeHost(){
+  // adopt whatever mobs we're already mirroring under a previous host; if we have none, we're a
+  // fresh/lone host — seed a new world. Either way, immediately (over)write the published set so
+  // any stale world/mobs left over from a past session is replaced, not adopted by newcomers.
+  if (mobs.length === 0) seedMobs();
+  for (const m of mobs) ensureNetId(m);
   publishWorldMobs();
-  publishFullSnapshot();
 }
 
 // only true progress is saved — not ephemeral world/session state like position, live mobs,
