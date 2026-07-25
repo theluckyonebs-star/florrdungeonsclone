@@ -1178,9 +1178,7 @@ function update(dt){
       const dx=m.x-inst.x, dy=m.y-inst.y, d=len(dx,dy);
       if (d < m.r+rad){
         if (inst.flying){ dealPetalDamage(inst, def, m, dx,dy,d); break; }
-        // projectile petals (Web) only ever damage as a projectile — no secondary contact-damage
-        // path while idle in the ring, so they can't double-dip both ways
-        else if (!def.projectile && inst.hitCd<=0){ inst.hitCd = PETAL_HIT_CD; dealPetalDamage(inst, def, m, dx,dy,d); }
+        else if (inst.hitCd<=0){ inst.hitCd = PETAL_HIT_CD; dealPetalDamage(inst, def, m, dx,dy,d); }
       }
     }
   }

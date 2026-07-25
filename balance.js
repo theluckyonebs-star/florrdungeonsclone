@@ -56,8 +56,8 @@ const RARITY_INFO = {
 // which rarity (→ container color) each petal belongs to — fixed forever, unrelated to tier
 const PETAL_RARITY = {
   rose:'common', rock:'common', light:'common', stinger:'common',
-  faster:'unusual', leaf:'unusual', honey:'unusual',
-  web:'rare', mandible:'rare', dahlia:'rare', iris:'rare',
+  faster:'unusual', leaf:'unusual', honey:'unusual', iris:'unusual',
+  web:'rare', mandible:'rare', dahlia:'rare',
   heavy:'epic', pollen:'epic',
   wing:'legendary', tulip:'legendary',
   thirdEye:'mythic', moon:'mythic',
@@ -246,7 +246,7 @@ const PETAL_DEFS = {
   stinger:  { name:'Stinger',  color:'#1a1a1a', shape:'triangleSide', health:1,  damage:45, reload:4.0, desc:'Extremely fragile with a slow reload, but deals ridiculous damage.' },
   honey:    { name:'Honey',    color:'#e8a916', shape:'drop',   health:10, damage:1,  reload:2.5, slowMult:0.5, slowDur:2, desc:"Deals 10x less damage, but halves a mob's movement speed on hit." },
   faster:   { name:'Faster',   color:'#ffcc33', shape:'circle', health:10, damage:10, reload:1.4, rotBonus:0.35, desc:'Reloads a little faster and speeds up your whole petal ring while active.' },
-  web:      { name:'Web',      color:'#d1d5db', shape:'web',    health:10, damage:20, reload:2.25, projectile:true, projSpeed:520, projLife:3, fireRange:300, desc:'Fires at a nearby mob, flying fast in a straight line until it hits or expires after 3s. Only deals damage as a projectile — it never hits on contact while idle.' },
+  web:      { name:'Web',      color:'#d1d5db', shape:'web',    health:10, damage:20, reload:2.25, projectile:true, projSpeed:520, projLife:3, fireRange:300, desc:'Fires at a nearby mob, flying fast in a straight line until it hits or expires after 3s. Still deals normal contact damage while idle in the ring.' },
   mandible: { name:'Mandible', color:'#a8763e', shape:'pincer', health:10, damage:17.5, reload:2.5, slowMult:0.75, slowDur:2, desc:"Basic stats, but slows a mob's movement to 0.75x on hit." },
   dahlia:   { name:'Dahlia',   color:'#f472b6', shape:'cluster',health:50, damage:0,  reload:1.875, armTime:0.5, healBurst:7.875, defensive:true, parts:3, desc:'Three miniature Roses — faster reload, but a much smaller heal each.' },
   pollen:   { name:'Pollen',   color:'#fff27a', shape:'dust',   health:10, damage:4,  reload:1.0, parts:3, desc:'Three miniature Lights — can never have more than 1 HP, but each hits 10x as hard.' },
