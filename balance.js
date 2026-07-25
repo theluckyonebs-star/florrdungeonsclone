@@ -57,7 +57,7 @@ const RARITY_INFO = {
 const PETAL_RARITY = {
   rose:'common', rock:'common', light:'common', stinger:'common',
   faster:'unusual', leaf:'unusual', honey:'unusual',
-  web:'rare', mandible:'rare', dahlia:'rare',
+  web:'rare', mandible:'rare', dahlia:'rare', iris:'rare',
   heavy:'epic', pollen:'epic',
   wing:'legendary', tulip:'legendary',
   thirdEye:'mythic', moon:'mythic',
@@ -91,11 +91,15 @@ const RARITY_START_TIER = { common:1, unusual:2, rare:3, epic:4, legendary:5, my
 function tierPossible(petal, tier){ return tier >= (RARITY_START_TIER[PETAL_RARITY[petal]] ?? 1); }
 function pscale(def, key, petalId, tier){
   const rarity = PETAL_RARITY[petalId];
+  const buff = RARITY_BUFF[rarity] != null ? RARITY_BUFF[rarity] : 1;
   if (petalId==='moon'){
     if (key==='health') return Infinity;
-    if (key==='damage') return (def.damage||0) * 10 * tierScale(petalId, tier);
+    if (key==='damage') return (def.damage||0) * 20 * tierScale(petalId, tier);
   }
-  const buff = RARITY_BUFF[rarity] != null ? RARITY_BUFF[rarity] : 1;
+  if (petalId==='pollen'){
+    if (key==='health') return 1; // can never have more than 1 HP, at any rarity/tier
+    if (key==='damage') return (def.damage||0) * 10 * buff * tierScale(petalId, tier);
+  }
   return (def[key]||0) * buff * tierScale(petalId, tier);
 }
 // secondary "buff" stats (rotation speed, range, reach, slow strength) scale with the same
@@ -235,22 +239,23 @@ function rollMobDrops(m){
    PETAL DEFINITIONS
    ══════════════════════════════════════════ */
 const PETAL_DEFS = {
-  wing:     { name:'Wing',     color:'#eaeaea', shape:'drop',   health:10, damage:10, reload:2.1, reach:36, desc:"Extends a little further when attacking and reloads a bit faster." },
-  leaf:     { name:'Leaf',     color:'#4ade80', shape:'leaf',   health:10, damage:10, reload:2.5, healPerSec:1, desc:'Passively heals the flower a little while equipped.' },
+  wing:     { name:'Wing',     color:'#eaeaea', shape:'drop',   health:100, damage:100, reload:2.1, reach:36, desc:"Extends a little further when attacking and reloads a bit faster." },
+  leaf:     { name:'Leaf',     color:'#4ade80', shape:'leaf',   health:15, damage:15, reload:2.5, healPerSec:1, desc:'Passively heals the flower a little while equipped.' },
   rose:     { name:'Rose',     color:'#f472b6', shape:'circle', health:100, damage:2,  reload:2.5, armTime:0.5, healBurst:30, defensive:true, desc:"Deals minimal damage but has hugely improved HP. Defensive — doesn't expand outward when you attack. Arms for 0.5s once you need healing, then self-destructs for a big heal." },
   light:    { name:'Light',    color:'#fff27a', shape:'ring',   health:10, damage:10, reload:1.0, desc:'Reloads significantly faster than a basic petal.' },
   stinger:  { name:'Stinger',  color:'#1a1a1a', shape:'triangleSide', health:1,  damage:45, reload:4.0, desc:'Extremely fragile with a slow reload, but deals ridiculous damage.' },
   honey:    { name:'Honey',    color:'#e8a916', shape:'drop',   health:10, damage:1,  reload:2.5, slowMult:0.5, slowDur:2, desc:"Deals 10x less damage, but halves a mob's movement speed on hit." },
-  faster:   { name:'Faster',   color:'#ffcc33', shape:'circle', health:10, damage:10, reload:2.1, rotBonus:0.35, desc:'Reloads a little faster and speeds up your whole petal ring while active.' },
-  web:      { name:'Web',      color:'#d1d5db', shape:'web',    health:10, damage:10, reload:2.5, projectile:true, projSpeed:520, projLife:3, fireRange:300, desc:'Fires at a nearby mob, flying fast in a straight line until it hits or expires after 3s.' },
-  mandible: { name:'Mandible', color:'#a8763e', shape:'pincer', health:10, damage:10, reload:2.5, slowMult:0.75, slowDur:2, desc:"Basic stats, but slows a mob's movement to 0.75x on hit." },
+  faster:   { name:'Faster',   color:'#ffcc33', shape:'circle', health:10, damage:10, reload:1.4, rotBonus:0.35, desc:'Reloads a little faster and speeds up your whole petal ring while active.' },
+  web:      { name:'Web',      color:'#d1d5db', shape:'web',    health:10, damage:20, reload:2.25, projectile:true, projSpeed:520, projLife:3, fireRange:300, desc:'Fires at a nearby mob, flying fast in a straight line until it hits or expires after 3s. Only deals damage as a projectile — it never hits on contact while idle.' },
+  mandible: { name:'Mandible', color:'#a8763e', shape:'pincer', health:10, damage:17.5, reload:2.5, slowMult:0.75, slowDur:2, desc:"Basic stats, but slows a mob's movement to 0.75x on hit." },
   dahlia:   { name:'Dahlia',   color:'#f472b6', shape:'cluster',health:50, damage:0,  reload:1.875, armTime:0.5, healBurst:7.875, defensive:true, parts:3, desc:'Three miniature Roses — faster reload, but a much smaller heal each.' },
-  pollen:   { name:'Pollen',   color:'#fff27a', shape:'dust',   health:10, damage:4,  reload:1.0, parts:3, desc:'Three miniature Lights, each hitting for 0.4x damage.' },
+  pollen:   { name:'Pollen',   color:'#fff27a', shape:'dust',   health:10, damage:4,  reload:1.0, parts:3, desc:'Three miniature Lights — can never have more than 1 HP, but each hits 10x as hard.' },
   thirdEye: { name:'Third Eye',color:'#a855f7', shape:'eye',    health:10, damage:10, reload:2.5, rangeBonus:1, desc:'Drastically extends the reach of your whole petal ring while attacking.' },
   tulip:    { name:'Tulip',    color:'#f472b6', shape:'tulipflower', health:50, damage:0, reload:2.5, armTime:0.5, healBurst:30, defensive:true, parts:2, desc:'Spawns two full Roses.' },
   rock:     { name:'Rock',     color:'#9c9c9c', shape:'rock',   health:25, damage:7, reload:3.5, desc:'Higher HP than a basic petal, at the cost of lower damage and a slower reload.' },
-  heavy:    { name:'Heavy',    color:'#6b6b6b', shape:'rock',   health:60, damage:10, reload:4.0, desc:'Significantly higher HP than normal, at the cost of a slow reload.' },
+  heavy:    { name:'Heavy',    color:'#6b6b6b', shape:'rock',   health:240, damage:40, reload:4.0, desc:'Significantly higher HP than normal, at the cost of a slow reload.' },
   moon:     { name:'Moon',     color:'#dfe7ff', shape:'crescent',health:500,damage:10, reload:10.0, desc:'Ridiculous amounts of HP, but an extremely slow reload.' },
+  iris:     { name:'Iris',     color:'#6d4aa8', shape:'iris',   health:80, damage:60, reload:3.0, poison:true, poisonDur:5, desc:"Deals massive damage as poison over 5 seconds instead of all at once — hitting an already-poisoned mob doesn't add more damage. Very tanky, so it can spread poison across several mobs before breaking." },
 };
 // Basic — no longer a single fixed-rarity filler petal. Basic Forging (see below) lets you pick
 // ANY rarity to forge it at, so it exists as 6 real, separate, fully tierable petals (one per
@@ -279,6 +284,7 @@ const PETAL_RECIPES = {
   dahlia:   { multi:2, heal:3 },
   mandible: { saliva:2, heavy:3 },
   web:      { multi:5 },
+  iris:     { saliva:5 },
   heavy:    { heavy:5 },
   pollen:   { multi:3, light:2 },
   tulip:    { multi:1, heal:4 },

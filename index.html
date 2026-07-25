@@ -719,6 +719,7 @@ function spawnMob(typeKey, level, x, y){
     aggroRange: b.aggroRange!=null ? b.aggroRange*aggroRangeScale(level) : undefined,
     aggro:false, slowT:0, slowMult:1, hurtFlash:0, legPhase:0, facing:0,
     wanderAng: rand(0,TAU), wanderT: rand(0.5,2),
+    poisonT:0, poisonDps:0, // Iris's poison — see dealPetalDamage/updateMob
   };
   if (typeKey==='rock'){ m.spin=rand(0,TAU); m.verts=rockShape(); }
   mobs.push(m); return m;
@@ -828,6 +829,12 @@ function damageMob(m, dmg, dx, dy, d, push){
     m.vx += nx*kb; m.vy += ny*kb;
   }
 }
+// Iris's poison — cannot stack, so a hit while already poisoned changes nothing (the existing
+// tick just keeps running at its original dps/duration)
+function applyPoison(m, dps, dur){
+  if (m.poisonT>0) return;
+  m.poisonDps = dps; m.poisonT = dur;
+}
 
 /* ══════════════════════════════════════════
    MOB AI
@@ -855,6 +862,13 @@ function updateMob(m, dt){
   m.dispHealth += (m.health - m.dispHealth) * clamp(HP_EASE*dt, 0, 1);
   if (m.slowT>0) m.slowT -= dt;
   if (m.hurtFlash>0) m.hurtFlash -= dt;
+  if (m.poisonT>0){
+    // ticks like any other damage source (hurtFlash, no knockback) — host-only, same as the
+    // rest of this function, so it stays authoritative in multiplayer
+    damageMob(m, m.poisonDps*dt, 0, 0, 0, 0);
+    m.poisonT -= dt;
+    if (m.poisonT<=0) m.poisonDps = 0;
+  }
   if (m.type==='spider'){
     const speed = len(m.vx,m.vy);
     if (speed>8) m.facing = Math.atan2(m.vy,m.vx);
@@ -996,13 +1010,15 @@ function dealPetalDamage(inst, def, m, dx, dy, d){
   const dmg = pscale(def,'damage',inst.petal,inst.tier);
   if (dmg>0){
     if (amHost){
-      // host owns the mobs — apply damage directly
-      damageMob(m, dmg, dx, dy, d, def.push||0);
+      // host owns the mobs — apply damage directly (Iris applies as poison instead of instant)
+      if (def.poison) applyPoison(m, dmg/def.poisonDur, def.poisonDur);
+      else damageMob(m, dmg, dx, dy, d, def.push||0);
       if (def.slowMult){ m.slowMult=scaledSlowMult(def,inst.petal,inst.tier); m.slowT=Math.max(m.slowT, scaledSlowDur(def,inst.petal,inst.tier)); }
       if (shouldAggroOnHit(m)) m.aggro = true;
     } else if (m.netId){
-      // non-host — the host is authoritative, so just report the hit and let it apply
-      window.MP.sendHit(m.netId, dmg);
+      // non-host — the host is authoritative, so just report the hit and let it apply.
+      // Carry the poison duration along so the host applies it as a DoT, not instant damage.
+      window.MP.sendHit(m.netId, dmg, def.poison ? def.poisonDur : 0);
     }
     noteMyHit(m.netId);   // remember I damaged this mob, so I get its loot when it dies
   }
@@ -1162,7 +1178,9 @@ function update(dt){
       const dx=m.x-inst.x, dy=m.y-inst.y, d=len(dx,dy);
       if (d < m.r+rad){
         if (inst.flying){ dealPetalDamage(inst, def, m, dx,dy,d); break; }
-        else if (inst.hitCd<=0){ inst.hitCd = PETAL_HIT_CD; dealPetalDamage(inst, def, m, dx,dy,d); }
+        // projectile petals (Web) only ever damage as a projectile — no secondary contact-damage
+        // path while idle in the ring, so they can't double-dip both ways
+        else if (!def.projectile && inst.hitCd<=0){ inst.hitCd = PETAL_HIT_CD; dealPetalDamage(inst, def, m, dx,dy,d); }
       }
     }
   }
@@ -1627,6 +1645,13 @@ function drawPetalIcon(ctx, id, cx, cy, r, tier){
       ctx.beginPath(); ctx.arc(r*0.42,-r*0.12,r*0.82,0,TAU); ctx.fill();
       ctx.globalCompositeOperation = 'source-over';
       ctx.beginPath(); ctx.arc(0,0,r,0,TAU); ctx.lineWidth=Math.max(1.3,r*0.16); ctx.strokeStyle=shadeColor(col,-38); ctx.stroke();
+      break;
+    case 'iris':
+      // a 4-petal bloom (two crossed ellipses) with a dark poisoned-looking center
+      ctx.beginPath(); ctx.ellipse(0,0,r*0.42,r,0,0,TAU); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(0,0,r,r*0.42,0,0,TAU); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = shadeColor(col,-55);
+      ctx.beginPath(); ctx.arc(0,0,r*0.24,0,TAU); ctx.fill();
       break;
     default:
       ctx.beginPath(); ctx.arc(0,0,r,0,TAU); ctx.fill(); ctx.stroke();
@@ -2929,7 +2954,8 @@ function consumeHits(hits){
     if (m && !m.dying){
       const src = remotePlayers[h.from];
       const dx = m.x - (src && src.x!=null ? src.x : m.x), dy = m.y - (src && src.y!=null ? src.y : m.y);
-      damageMob(m, h.d, dx, dy, len(dx,dy)||1, 0);
+      if (h.p) applyPoison(m, h.d/h.p, h.p);
+      else damageMob(m, h.d, dx, dy, len(dx,dy)||1, 0);
       if (shouldAggroOnHit(m)) m.aggro = true;
     }
   }

@@ -149,8 +149,9 @@ const MP = {
   // best-effort: if the host vanishes, its published mob set is left for the next host to adopt
   // (a fresh lone host reseeds instead, so the world still recovers)
 
-  // non-host → host: "my petal hit mob <id> for <dmg>"
-  sendHit(mobId, dmg) { if (!uid) return; push(ref(db, 'world/hits'), { m: mobId, d: dmg, from: uid }).catch(() => {}); },
+  // non-host → host: "my petal hit mob <id> for <dmg>" — poisonDur is set only for a poison
+  // hit (Iris), telling the host to apply it as a DoT instead of instant damage
+  sendHit(mobId, dmg, poisonDur) { if (!uid) return; push(ref(db, 'world/hits'), { m: mobId, d: dmg, from: uid, ...(poisonDur ? {p: poisonDur} : {}) }).catch(() => {}); },
   subscribeHits(cb) { onValue(ref(db, 'world/hits'), (s) => cb(s.val() || {})); },
   clearHits(keys) {
     if (!keys || !keys.length) return;
