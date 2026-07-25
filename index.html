@@ -242,12 +242,6 @@
   .gcell.named .eicon{width:26px;height:26px;}
   .gcell .gc-name{font-size:8px;font-weight:900;color:#33301a;line-height:1.05;text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .gcell .gc-name.long{font-size:6.5px;letter-spacing:-.02em;}
-  /* compact label above a row of the same petal/essence (different tiers or rarities) — used in
-     the Inventory, Petal Gallery, and Petal Tiering grids so each row is identifiable at a glance */
-  .row-label{font-size:10px;font-weight:900;margin:9px 2px 3px;text-shadow:0 1px 2px rgba(0,0,0,.3);}
-  .row-label:first-child{margin-top:0;}
-  .panel.gallery .row-label{color:#3a3418;}
-  .panel.inventory .row-label{color:#eaf3ff;}
   .gcell.named .gc-count{top:1px;right:2px;bottom:auto;}
 
   /* click-triggered detail tooltip, shared by both galleries */
@@ -1961,7 +1955,7 @@ function renderInventoryPanel(){
   const petalsSorted = Object.keys(PETAL_DEFS).sort(byRarityThenNameAsc);
   const rows = petalsSorted.map(petalKey=>{
     const cells = TIERS.map(tier=>petalInvCell(petalKey, tier)).join('');
-    return `<div class="row-label">${PETAL_DEFS[petalKey].name}</div><div class="grow">${cells}</div>`;
+    return `<div class="grow">${cells}</div>`;
   }).join('');
   return `
     <div class="panel-head"><h2>Inventory</h2><button class="x" onclick="closePanel()">✕</button></div>
@@ -2011,8 +2005,6 @@ function renderMobPanel(){
     <div class="panel-head"><h2>Mob Gallery</h2><button class="x" onclick="closePanel()">✕</button></div>
     <div class="panel-body">${rows}</div>`;
 }
-// has this petal been obtained at any tier? (only forging ever sets discoveredPetals now)
-function petalAnyDiscovered(petal){ return TIERS.some(t=>discoveredPetals.has(invKey(petal,t))); }
 // zone-jackpot rows only — the hidden jackpots (5%/1%/0.1%) are deliberately never shown here
 function essenceRateCard(rarity, pct, zoneNum, subTier, name){
   const sig = name && name!=='base' ? SIGNATURE_ESSENCES[name] : null;
@@ -2064,10 +2056,7 @@ function renderPetalPanel(){
         <canvas class="picn" data-petal="${petalKey}" data-tier="${tier}" width="40" height="40"></canvas>
       </div>`;
     }).join('');
-    // only label the row once you've discovered the petal at some tier — otherwise the name
-    // would spoil what the "❓" cells are hiding
-    const label = petalAnyDiscovered(petalKey) ? `<div class="row-label">${PETAL_DEFS[petalKey].name}</div>` : '';
-    return `${label}<div class="grow">${cells}</div>`;
+    return `<div class="grow">${cells}</div>`;
   }).join('');
   return `
     <div class="panel-head"><h2>Petal Gallery</h2><button class="x" onclick="closePanel()">✕</button></div>
@@ -2126,7 +2115,8 @@ function showPetalTip(e, petalKey, tier){
      converges them into the upgraded petal (success) or scatters back with 1-4 destroyed (fail). ── */
 // shift-click queues every full batch of CRAFT_COST you own at once instead of just one
 function selectCraftItem(petal, tier, bulk){
-  if (craftPhase!=='idle' || PETAL_RARITY[petal]==='mythic') return; // no mid-animation swaps, and mythics can't be crafted at all
+  // no mid-animation swaps; mythics can't be tiered; Basics can't be tiered (only forged fresh)
+  if (craftPhase!=='idle' || PETAL_RARITY[petal]==='mythic' || Object.values(BASIC_IDS).includes(petal)) return;
   craftSelection = { petal, tier };
   craftBulk = !!bulk;
   renderPanel();
@@ -2263,7 +2253,9 @@ function renderCraftPanel(){
     chanceText = isMax ? 'Already max tier' : `${CRAFT_CHANCE_BY_RARITY[PETAL_RARITY[sel.petal]]}% success chance`;
   }
 
-  const rows = Object.keys(PETAL_DEFS).filter(k=>PETAL_RARITY[k]!=='mythic').sort(byRarityThenNameAsc).map(petalKey=>{
+  // Basics can't be tiered up — they're only ever obtained fresh via Basic Forging
+  const basicIdSet = new Set(Object.values(BASIC_IDS));
+  const rows = Object.keys(PETAL_DEFS).filter(k=>PETAL_RARITY[k]!=='mythic' && !basicIdSet.has(k)).sort(byRarityThenNameAsc).map(petalKey=>{
     const rowRc = RARITY_INFO[PETAL_RARITY[petalKey]].color;
     const cells = TIERS.map(t=>{
       const k = invKey(petalKey, t);
@@ -2281,8 +2273,7 @@ function renderCraftPanel(){
         <div class="gc-count">x${cntText}</div>
       </div>`;
     }).join('');
-    const label = petalAnyDiscovered(petalKey) ? `<div class="row-label">${PETAL_DEFS[petalKey].name}</div>` : '';
-    return `${label}<div class="grow">${cells}</div>`;
+    return `<div class="grow">${cells}</div>`;
   }).join('');
 
   return `
