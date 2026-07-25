@@ -212,6 +212,7 @@
     display:flex;align-items:center;justify-content:center;}
   .forge-sat.missing{filter:grayscale(1) brightness(0.6);opacity:.6;}
   .forge-sat canvas{width:40px;height:40px;}
+  .forge-sat-label{font-size:9px;font-weight:900;color:#3a3418;text-align:center;margin-top:2px;}
   /* icon back-button that lives to the left of a sub-menu title */
   .panel-head .head-left{display:flex;align-items:center;gap:8px;}
   .backbtn{background:#b3a635;border:2px solid #7d7328;color:#3a3418;font-weight:900;font-size:15px;line-height:1;
@@ -241,6 +242,12 @@
   .gcell.named .eicon{width:26px;height:26px;}
   .gcell .gc-name{font-size:8px;font-weight:900;color:#33301a;line-height:1.05;text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .gcell .gc-name.long{font-size:6.5px;letter-spacing:-.02em;}
+  /* compact label above a row of the same petal/essence (different tiers or rarities) — used in
+     the Inventory, Petal Gallery, and Petal Tiering grids so each row is identifiable at a glance */
+  .row-label{font-size:10px;font-weight:900;margin:9px 2px 3px;text-shadow:0 1px 2px rgba(0,0,0,.3);}
+  .row-label:first-child{margin-top:0;}
+  .panel.gallery .row-label{color:#3a3418;}
+  .panel.inventory .row-label{color:#eaf3ff;}
   .gcell.named .gc-count{top:1px;right:2px;bottom:auto;}
 
   /* click-triggered detail tooltip, shared by both galleries */
@@ -1954,7 +1961,7 @@ function renderInventoryPanel(){
   const petalsSorted = Object.keys(PETAL_DEFS).sort(byRarityThenNameAsc);
   const rows = petalsSorted.map(petalKey=>{
     const cells = TIERS.map(tier=>petalInvCell(petalKey, tier)).join('');
-    return `<div class="grow">${cells}</div>`;
+    return `<div class="row-label">${PETAL_DEFS[petalKey].name}</div><div class="grow">${cells}</div>`;
   }).join('');
   return `
     <div class="panel-head"><h2>Inventory</h2><button class="x" onclick="closePanel()">✕</button></div>
@@ -2057,7 +2064,10 @@ function renderPetalPanel(){
         <canvas class="picn" data-petal="${petalKey}" data-tier="${tier}" width="40" height="40"></canvas>
       </div>`;
     }).join('');
-    return `<div class="grow">${cells}</div>`;
+    // only label the row once you've discovered the petal at some tier — otherwise the name
+    // would spoil what the "❓" cells are hiding
+    const label = petalAnyDiscovered(petalKey) ? `<div class="row-label">${PETAL_DEFS[petalKey].name}</div>` : '';
+    return `${label}<div class="grow">${cells}</div>`;
   }).join('');
   return `
     <div class="panel-head"><h2>Petal Gallery</h2><button class="x" onclick="closePanel()">✕</button></div>
@@ -2271,7 +2281,8 @@ function renderCraftPanel(){
         <div class="gc-count">x${cntText}</div>
       </div>`;
     }).join('');
-    return `<div class="grow">${cells}</div>`;
+    const label = petalAnyDiscovered(petalKey) ? `<div class="row-label">${PETAL_DEFS[petalKey].name}</div>` : '';
+    return `${label}<div class="grow">${cells}</div>`;
   }).join('');
 
   return `
@@ -2376,8 +2387,9 @@ function renderBasicForging(){
   if (!forgeSelection){
     const cells = RARITIES.map(rarity=>{
       const rc = RARITY_INFO[rarity].color;
-      return `<div class="gcell" style="--rc:${rc}" onclick="selectBasicRarity('${rarity}',event.shiftKey)">
+      return `<div class="gcell named" style="--rc:${rc}" onclick="selectBasicRarity('${rarity}',event.shiftKey)">
         <canvas class="picn" data-petal="${BASIC_IDS[rarity]}" width="40" height="40"></canvas>
+        <div class="gc-name">${RARITY_INFO[rarity].name}</div>
       </div>`;
     }).join('');
     return `
@@ -2502,8 +2514,9 @@ function renderPetalForging(){
     const petalsSorted = Object.keys(PETAL_RECIPES).sort(byRarityThenNameAsc);
     const cells = petalsSorted.map(petalKey=>{
       const rc = RARITY_INFO[PETAL_RARITY[petalKey]].color;
-      return `<div class="gcell" style="--rc:${rc}" onclick="selectPetalForge('${petalKey}',event.shiftKey)">
+      return `<div class="gcell named" style="--rc:${rc}" onclick="selectPetalForge('${petalKey}',event.shiftKey)">
         <canvas class="picn" data-petal="${petalKey}" width="40" height="40"></canvas>
+        <div class="gc-name ${PETAL_DEFS[petalKey].name.length>6?'long':''}">${PETAL_DEFS[petalKey].name}</div>
       </div>`;
     }).join('');
     return `
@@ -2557,6 +2570,7 @@ function renderPetalForging(){
           <div class="forge-sat ${basicOk?'':'missing'}" style="--rc:${rc}">
             <canvas class="picn" data-petal="${BASIC_IDS[rarity]}" width="40" height="40"></canvas>
           </div>
+          <div class="forge-sat-label">Basic</div>
           <button class="craft-btn" ${canForge?'':'disabled'} onclick="attemptPetalForge()">Forge</button>
           <div class="craft-chance">${statusText}</div>
         </div>
@@ -2565,18 +2579,22 @@ function renderPetalForging(){
 }
 
 /* ── Essence Forging — two conversion directions, each spends 5-of-one-thing + 1-of-another to
-     upgrade an essence stack to a higher rarity. In BOTH modes the "5x" side (the pentagon) is
-     always the chosen signature essence, and the "1x" side (the satellite) is always Base —
-     what differs is which side actually gets upgraded: Sig→Sig upgrades the 5x signature
-     essence to the Base's rarity; Base→Base upgrades the 1x Base to the signature essence's
-     (higher) rarity. ── */
+     upgrade an essence stack to the NEXT rarity up (one step only — you can't skip rarities).
+     In BOTH modes the "5x" side (the pentagon) is always the chosen signature essence, and the
+     "1x" side (the satellite) is always Base — what differs is which side actually gets
+     upgraded: Sig→Sig upgrades the 5x signature essence to the Base's rarity; Base→Base upgrades
+     the 1x Base to the signature essence's (one-higher) rarity. ── */
 function setEforgeMode(mode){ eforgeMode = mode; eforgeSigId=null; eforgeFromRarity=null; eforgeToRarity=null; renderPanel(); }
 function setEforgeSigId(id){ eforgeSigId = id; eforgeFromRarity=null; eforgeToRarity=null; renderPanel(); }
-function setEforgeFromRarity(r){ eforgeFromRarity = r; eforgeToRarity=null; renderPanel(); }
-function setEforgeToRarity(r){ eforgeToRarity = r; renderPanel(); }
+// picking the source rarity auto-picks the target — always exactly one rarity higher
+function setEforgeFromRarity(r){
+  eforgeFromRarity = r;
+  const idx = RARITIES.indexOf(r);
+  eforgeToRarity = (idx>=0 && idx<RARITIES.length-1) ? RARITIES[idx+1] : null;
+  renderPanel();
+}
 function eforgeReady(){
   if (!eforgeSigId || !eforgeFromRarity || !eforgeToRarity) return false;
-  if (RARITIES.indexOf(eforgeToRarity) <= RARITIES.indexOf(eforgeFromRarity)) return false;
   if (eforgeMode==='sig'){
     return (essence[essenceKey(eforgeFromRarity,eforgeSigId)]||0) >= 5 && (essence[essenceKey(eforgeToRarity)]||0) >= 1;
   } else {
@@ -2612,30 +2630,22 @@ function renderEssenceForging(){
   const sigCells = Object.keys(SIGNATURE_ESSENCES).map(id=>{
     const sig = SIGNATURE_ESSENCES[id];
     const sel = eforgeSigId===id ? 'sel' : '';
-    return `<div class="gcell ${sel}" style="--rc:${sig.color}" onclick="setEforgeSigId('${id}')">
+    return `<div class="gcell named ${sel}" style="--rc:${sig.color}" onclick="setEforgeSigId('${id}')">
       <canvas class="eicon" data-rarity="${sig.startRarity}" data-name="${id}" width="40" height="40"></canvas>
+      <div class="gc-name ${sig.name.length>6?'long':''}">${sig.name}</div>
     </div>`;
   }).join('');
 
-  // step 2: the rarity being spent 5x (sig mode) or the Base rarity being upgraded (base mode)
+  // step 2: the source rarity being spent 5x (sig mode) or the Base rarity being upgraded (base
+  // mode) — picking this auto-picks the target (always exactly one rarity higher)
   let fromCells = '';
   if (eforgeSigId){
     const fromChoices = (eforgeMode==='sig' ? sigEssenceRarities(eforgeSigId) : RARITIES).filter(r=>r!=='mythic');
     fromCells = fromChoices.map(r=>{
       const sel = eforgeFromRarity===r ? 'sel' : '';
-      return `<div class="gcell ${sel}" style="--rc:${RARITY_INFO[r].color}" onclick="setEforgeFromRarity('${r}')">
+      return `<div class="gcell named ${sel}" style="--rc:${RARITY_INFO[r].color}" onclick="setEforgeFromRarity('${r}')">
         <canvas class="eicon" data-rarity="${r}" data-name="${eforgeMode==='sig'?eforgeSigId:'base'}" width="40" height="40"></canvas>
-      </div>`;
-    }).join('');
-  }
-
-  // step 3: the target (higher) rarity
-  let toCells = '';
-  if (eforgeFromRarity){
-    toCells = RARITIES.slice(RARITIES.indexOf(eforgeFromRarity)+1).map(r=>{
-      const sel = eforgeToRarity===r ? 'sel' : '';
-      return `<div class="gcell ${sel}" style="--rc:${RARITY_INFO[r].color}" onclick="setEforgeToRarity('${r}')">
-        <canvas class="eicon" data-rarity="${r}" data-name="${eforgeMode==='sig'?'base':eforgeSigId}" width="40" height="40"></canvas>
+        <div class="gc-name">${RARITY_INFO[r].name}</div>
       </div>`;
     }).join('');
   }
@@ -2688,6 +2698,7 @@ function renderEssenceForging(){
           <div class="forge-sat ${satHave>=1?'':'missing'}" style="--rc:${satRarity?RARITY_INFO[satRarity].color:'#8d8256'}">
             <canvas class="eicon" data-rarity="${satRarity||'common'}" data-name="base" width="40" height="40"></canvas>
           </div>
+          <div class="forge-sat-label">Base</div>
           <button class="craft-btn" ${ready && eforgePhase==='idle'?'':'disabled'} onclick="attemptEssenceForge()">Forge</button>
           <div class="craft-chance">${statusText}</div>
         </div>
@@ -2696,7 +2707,6 @@ function renderEssenceForging(){
     <div class="panel-body">
       <div class="forge-step"><div class="grow">${sigCells}</div></div>
       ${eforgeSigId ? `<div class="forge-step"><div class="grow">${fromCells}</div></div>` : ''}
-      ${eforgeFromRarity ? `<div class="forge-step"><div class="grow">${toCells}</div></div>` : ''}
     </div>`;
 }
 
@@ -2731,15 +2741,18 @@ function renderEssenceDividing(){
     const sel = edivName===name ? 'sel' : '';
     const color = name==='base' ? '#8d8256' : SIGNATURE_ESSENCES[name].color;
     const startRarity = name==='base' ? 'common' : SIGNATURE_ESSENCES[name].startRarity;
-    return `<div class="gcell ${sel}" style="--rc:${color}" onclick="setEdivName('${name}')">
+    const label = name==='base' ? 'Base' : SIGNATURE_ESSENCES[name].name;
+    return `<div class="gcell named ${sel}" style="--rc:${color}" onclick="setEdivName('${name}')">
       <canvas class="eicon" data-rarity="${startRarity}" data-name="${name}" width="40" height="40"></canvas>
+      <div class="gc-name ${label.length>6?'long':''}">${label}</div>
     </div>`;
   }).join('');
   const validRarities = (edivName==='base' ? RARITIES : sigEssenceRarities(edivName)).filter(r=>ESSENCE_DIVIDE[r]);
   const rarityCells = validRarities.map(r=>{
     const sel = edivRarity===r ? 'sel' : '';
-    return `<div class="gcell ${sel}" style="--rc:${RARITY_INFO[r].color}" onclick="setEdivRarity('${r}')">
+    return `<div class="gcell named ${sel}" style="--rc:${RARITY_INFO[r].color}" onclick="setEdivRarity('${r}')">
       <canvas class="eicon" data-rarity="${r}" data-name="${edivName}" width="40" height="40"></canvas>
+      <div class="gc-name">${RARITY_INFO[r].name}</div>
     </div>`;
   }).join('');
   const div = edivRarity ? ESSENCE_DIVIDE[edivRarity] : null;
